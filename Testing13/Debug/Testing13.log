@@ -1,0 +1,21 @@
+﻿Build started 4/23/2014 3:59:45 PM.
+     1>Project "C:\Hepler5590\AMD APP SDK\2.9\samples\opencl\Testing13\Testing13.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\bin\CL.exe /c /I"C:\Program Files (x86)\AMD APP SDK\2.9\\include" /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc110.pdb" /Gd /TP /analyze- /errorReport:prompt prisoner.cpp
+         prisoner.cpp
+     1>c:\hepler5590\amd app sdk\2.9\samples\opencl\testing13\prisoner.cpp(148): warning C4101: 'past_temp' : unreferenced local variable
+     1>c:\hepler5590\amd app sdk\2.9\samples\opencl\testing13\prisoner.cpp(336): warning C4244: 'argument' : conversion from 'time_t' to 'unsigned int', possible loss of data
+     1>c:\hepler5590\amd app sdk\2.9\samples\opencl\testing13\prisoner.cpp(464): warning C4244: 'argument' : conversion from 'time_t' to 'unsigned int', possible loss of data
+     1>c:\hepler5590\amd app sdk\2.9\samples\opencl\testing13\prisoner.cpp(460): warning C4101: 'score_j' : unreferenced local variable
+     1>c:\hepler5590\amd app sdk\2.9\samples\opencl\testing13\prisoner.cpp(439): warning C4101: 'cl_j' : unreferenced local variable
+     1>c:\hepler5590\amd app sdk\2.9\samples\opencl\testing13\prisoner.cpp(460): warning C4101: 'score_i' : unreferenced local variable
+     1>c:\hepler5590\amd app sdk\2.9\samples\opencl\testing13\prisoner.cpp(439): warning C4101: 'cl_i' : unreferenced local variable
+     1>c:\hepler5590\amd app sdk\2.9\samples\opencl\testing13\prisoner.cpp(748): warning C4244: 'argument' : conversion from 'time_t' to 'unsigned int', possible loss of data
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Hepler5590\AMD APP SDK\2.9\samples\opencl\Debug\Testing13.exe" /INCREMENTAL /NOLOGO /LIBPATH:"C:\Program Files (x86)\AMD APP SDK\2.9\\lib\x86" OpenCL.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Hepler5590\AMD APP SDK\2.9\samples\opencl\Debug\Testing13.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Hepler5590\AMD APP SDK\2.9\samples\opencl\Debug\Testing13.lib" /MACHINE:X86 Debug\prisoner.obj
+         Testing13.vcxproj -> C:\Hepler5590\AMD APP SDK\2.9\samples\opencl\Debug\Testing13.exe
+     1>Done Building Project "C:\Hepler5590\AMD APP SDK\2.9\samples\opencl\Testing13\Testing13.vcxproj" (Build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:01.22
