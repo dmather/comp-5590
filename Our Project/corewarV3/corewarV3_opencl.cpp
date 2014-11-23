@@ -2,66 +2,268 @@
 #include <stdio.h>
 #include <iomanip>
 #include <CL/cl.h>
+#include <fstream>
+#include <sstream>
 #include "corewarV3_opencl.h"
 //#include "redcode_fileio.h"
 
+const int ARRAY_SIZE = 100;
+
 using namespace std;
 
-int main()
+cl_context CreateContext(void)
 {
-    // To save on coding modularity some of this opencl code should be
-    // plunked in a different function or maybe even file to increase
-    // readability.
-    cl_int error;
-    cl_platform_id platform;
-    cl_device_id device;
-    cl_uint platforms, devices;
+    cl_int errNum;
+    cl_uint numPlatforms;
+    cl_platform_id firstPlatformId;
+    cl_context context = NULL;
 
-    error = clGetPlatformIDs(1, &platform, &platforms);
-    if(error != CL_SUCCESS)
+    errNum = clGetPlatformIDs(1, &firstPlatformId, &numPlatforms);
+    if(errNum != CL_SUCCESS || numPlatforms <= 0)
     {
-        printf("Error number %d\n", error);
+        printf("Failed to find any OpenCL platforms.");
+        return NULL;
     }
-    // For general testing I'm leaving the CL_DEVICE_TYPE_ALL in place
-    // but it should be changed to CL_DEVICE_TYPE_GPU later.
-    error = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 1, &device, &devices);
-    if(error != CL_SUCCESS)
+
+    cl_context_properties contextProperties[] =
     {
-        printf("Error number %d\n", error);
-    }
-    cl_context_properties properties[] = {
         CL_CONTEXT_PLATFORM,
-        (cl_context_properties)platform,
+        (cl_context_properties)firstPlatformId,
         0
     };
-    cl_context context = clCreateContext(properties, 1, &device,
-                                         NULL, NULL, &error);
-    if(error != CL_SUCCESS)
+
+    context = clCreateContextFromType(contextProperties, CL_DEVICE_TYPE_GPU,
+                                      NULL, NULL, &errNum);
+    if(errNum != CL_SUCCESS)
     {
-        printf("Error number %d\n", error);
+        printf("could not create GPU context, trying CPU...");
+        context = clCreateContextFromType(contextProperties,
+                                          CL_DEVICE_TYPE_CPU, NULL, NULL,
+                                          &errNum);
+        if(errNum != CL_SUCCESS)
+        {
+            printf("Failed to create an OpenCL GPU or CPU context.");
+            return NULL;
+        }
+    }
+    return context;
+}
+
+cl_command_queue CreateCommandQueue(cl_context context, cl_device_id *device)
+{
+    cl_int errNum;
+    cl_device_id *devices;
+    cl_command_queue commandQueue = NULL;
+    size_t deviceBufferSize = -1;
+
+    errNum = clGetContextInfo(context, CL_CONTEXT_DEVICES, 0, NULL,
+                              &deviceBufferSize);
+    if(errNum != CL_SUCCESS)
+    {
+        printf("Failed called to clGetContextInf(..., CL_CONTEXT_DEVICES, ...)");
+        return NULL;
     }
 
-    cl_command_queue cq = clCreateCommandQueue(context, device, 0, &error);
-    if(error != CL_SUCCESS)
+    if(deviceBufferSize <= 0)
     {
-        printf("Error number %d\n", error);
+        printf("No devices available.");
+        return NULL;
     }
 
-    // When we have our CL program uncomment this code.
-    //cl_program prog = clCreateProgramWithSource(context, 1, srcptr, &srcsize,
-    //                                            &error);
-    if(error != CL_SUCCESS)
+    devices = new cl_device_id[deviceBufferSize/sizeof(cl_device_id)];
+    errNum = clGetContextInfo(context, CL_CONTEXT_DEVICES, deviceBufferSize,
+                              devices, NULL);
+    if(errNum != CL_SUCCESS)
     {
-        printf("Error number %d\n", error);
+        printf("Failed to get device IDs");
+        delete[] devices;
+        return NULL;
     }
 
-    // When we have our CL program uncomment this code.
-    //error = clBuildProgram(prog, 0, NULL, "", NULL, NULL, NULL);
-    if(error != CL_SUCCESS)
+    commandQueue = clCreateCommandQueue(context, devices[0], 0, NULL);
+    if(commandQueue == NULL)
     {
-        printf("Error number %d\n", error);
-        //clGetProgramBuildInfo
+        printf("Failed to create command Queue for device 0");
+        return NULL;
     }
+
+    *device = device[0];
+    delete [] devices;
+    return commandQueue;
+}
+
+cl_program CreateProgram(cl_context context, cl_device_id device,
+                         const char* fileName)
+{
+    cl_int errNum;
+    cl_program program;
+
+    ifstream kernelFile(fileName, ios::in);
+    if(!kernelFile.is_open())
+    {
+        printf("Failed to open file for reading: %s", fileName);
+        return NULL;
+    }
+
+    ostringstream oss;
+    oss << kernelFile.rdbuf();
+
+    string srcStdStr = oss.str();
+    const char *srcStr = srcStdStr.c_str();
+    program = clCreateProgramWithSource(context, 1, (const char**)&srcStr,
+                                        NULL, NULL);
+    if(program == NULL)
+    {
+        printf("Failed to create CL program from source.\n");
+        return NULL;
+    }
+
+    errNum = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+    if(errNum != CL_SUCCESS)
+    {
+        char buildLog[16384];
+        clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
+                              sizeof(buildLog), buildLog, NULL);
+        printf("Error in kernel: ");
+        printf("%s", buildLog);
+        clReleaseProgram(program);
+        return NULL;
+    }
+    return program;
+}
+
+bool CreateMemObjects(cl_context context, cl_mem memObjects[3],
+                      float *a, float *b)
+{
+    memObjects[0] = clCreateBuffer(context,
+                                   CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                   sizeof(float) * ARRAY_SIZE, a, NULL);
+    memObjects[1] = clCreateBuffer(context,
+                                   CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                   sizeof(float) * ARRAY_SIZE, b, NULL);
+    memObjects[2] = clCreateBuffer(context,
+                                   CL_MEM_READ_WRITE,
+                                   sizeof(float) * ARRAY_SIZE, NULL, NULL);
+    if(memObjects[0] == NULL || memObjects[1] == NULL || memObjects[2] == NULL)
+    {
+        printf("Error creating memory objects. %f %f %f\n", memObjects[0],
+                memObjects[1], memObjects[2]);
+        return false;
+    }
+    return true;
+}
+
+void Cleanup(cl_context context, cl_command_queue commandQueue,
+             cl_program program, cl_kernel kernel, cl_mem memObjects[3])
+{
+    for (int i = 0; i < 3; i++)
+    {
+        if(memObjects[i] != 0)
+            clReleaseMemObject(memObjects[i]);
+    }
+    if(commandQueue != 0)
+        clReleaseCommandQueue(commandQueue);
+    if(kernel != 0)
+        clReleaseKernel(kernel);
+    if(program != 0)
+        clReleaseProgram(program);
+    if(context != 0)
+        clReleaseContext(context);
+}
+
+int main(int argc, char** argv)
+{
+    cl_context context = 0;
+    cl_command_queue commandQueue = 0;
+    cl_program program = 0;
+    cl_device_id device = 0;
+    cl_kernel kernel = 0;
+    cl_mem memObjects[3] = {0, 0, 0};
+    cl_int errNum;
+
+    context = CreateContext();
+    if(context == NULL)
+    {
+        printf("Failed to create OpenCL context.\n");
+        return 1;
+    }
+
+    commandQueue = CreateCommandQueue(context, &device);
+    if(commandQueue == NULL)
+    {
+        Cleanup(context, commandQueue, program, kernel, memObjects);
+        return 1;
+    }
+
+    program = CreateProgram(context, device, "kernel.cl");
+    if(program == NULL)
+    {
+        Cleanup(context, commandQueue, program, kernel, memObjects);
+        return 1;
+    }
+
+    kernel = clCreateKernel(program, "hello_kernel", NULL);
+    if(kernel == NULL)
+    {
+        printf("Failed to create kernel\n");
+    }
+
+    float result[ARRAY_SIZE];
+    float a[ARRAY_SIZE];
+    float b[ARRAY_SIZE];
+    for(int i = 0; i < ARRAY_SIZE; i++)
+    {
+        a[i] = i;
+        b[i] = i * 2;
+    }
+
+    if(!CreateMemObjects(context, memObjects, a, b))
+    {
+        Cleanup(context, commandQueue, program, kernel, memObjects);
+        return 1;
+    }
+
+    errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[0]);
+    errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[1]);
+    errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[2]);
+
+    if(errNum != CL_SUCCESS)
+    {
+        printf("Error setting kernel arguments.\n");
+        Cleanup(context, commandQueue, program, kernel, memObjects);
+        return 1;
+    }
+
+    size_t globalWorkSize[1] = { ARRAY_SIZE };
+    size_t localWorkSize[1] = { 1 };
+
+    errNum = clEnqueueNDRangeKernel(commandQueue, kernel, 1, NULL,
+                                    globalWorkSize, localWorkSize,
+                                    0, NULL, NULL);
+    if(errNum != CL_SUCCESS)
+    {
+        printf("Error queueing kernel for execution.\n");
+        Cleanup(context, commandQueue, program, kernel, memObjects);
+        return 1;
+    }
+
+    errNum = clEnqueueReadBuffer(commandQueue, memObjects[2], CL_TRUE, 0,
+            ARRAY_SIZE * sizeof(float), result, 0, NULL, NULL);
+    if(errNum != CL_SUCCESS)
+    {
+        printf("Error reading result buffer.\n");
+        Cleanup(context, commandQueue, program, kernel, memObjects);
+        return 1;
+    }
+
+    for(int i = 0; i < ARRAY_SIZE; i++)
+    {
+        printf("%d ", result[i]);
+    }
+
+    printf("\n");
+    printf("Executed program succesfully.\n");
+    Cleanup(context, commandQueue, program, kernel, memObjects);
 
     return 0;
 }
