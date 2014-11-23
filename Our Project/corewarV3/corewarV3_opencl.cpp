@@ -123,8 +123,8 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
         char buildLog[16384];
         clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
                               sizeof(buildLog), buildLog, NULL);
-        printf("Error in kernel: \n");
-        printf("%s", buildLog);
+        cerr << "Error in kernel: " << endl;
+        cerr << buildLog;
         clReleaseProgram(program);
         return NULL;
     }
