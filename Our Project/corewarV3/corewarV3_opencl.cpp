@@ -6,7 +6,7 @@
 #include "corewarV3_opencl.h"
 //#include "redcode_fileio.h"
 
-const int ARRAY_SIZE = 100000;
+const int ARRAY_SIZE = 1;
 
 //using namespace std;
 
@@ -117,12 +117,15 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
         return NULL;
     }
 
-    errNum = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+    // Fourth argument contains a string for opencl kernel preprocessor
+    // search directory, this allows us to use includes.
+    errNum = clBuildProgram(program, 0, NULL, "-I ./", NULL, NULL);
     if(errNum != CL_SUCCESS)
     {
-        char buildLog[16384];
-        clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
-                              sizeof(buildLog), buildLog, NULL);
+        char buildLog[262144];
+        errNum = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
+                                       sizeof(buildLog), buildLog, NULL);
+        cout << "clGetProgramBuildInfo: " << errNum << endl;
         cerr << "Error in kernel: " << endl;
         cerr << buildLog;
         clReleaseProgram(program);

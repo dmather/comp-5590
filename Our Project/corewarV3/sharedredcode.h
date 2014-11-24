@@ -6,7 +6,7 @@
 #define MAX_PROCESSES 1000
 #define MAX_ITERATIONS 10
 
-enum instruction {
+typedef enum instruction {
     DAT, // not executable, values stored in B
     MOV, // copy A to B
     ADD, // add A into B (storing in B)
@@ -20,20 +20,20 @@ enum instruction {
     CMP, // if A != B skip next instruction
     SPL, // split execution into next instruction and instruction at A
     NOP  // do nothing -- used as "punctuation" for genetic algorithm
-};
+} instruction;
 
-enum addressing {
+typedef enum addressing {
     IMM, // immediate (#)
     DIR, // direct ($)
     IND, // indirect (@)
-};
+} addressing;
 
-struct memory_cell {
+typedef struct memory_cell {
     instruction code;
     int arg_A;
     addressing mode_A;
     int arg_B;
     addressing mode_B;
-};
+} memory_cell;
 
 #endif // SHAREDREDCODE_H
