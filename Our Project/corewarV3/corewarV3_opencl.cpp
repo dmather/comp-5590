@@ -134,9 +134,18 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
     return program;
 }
 
-bool CreateMemObjects(cl_context context, cl_mem memObjects[3],
-                      float *a, float *b)
+bool CreateMemObjects(cl_context context,
+                      cl_mem p_memCells,
+                      cl_mem p_pcs,
+                      cl_mem p_c_proc,
+                      cl_mem p_n_proc,
+                      memory_cell memCells[MEMORY_SIZE],
+                      int pcs[N_PROGRAMS][MAX_PROCESSES],
+                      int *c_proc,
+                      int *n_proc)
 {
+    // Example buffer objects
+    /*
     memObjects[0] = clCreateBuffer(context,
                                    CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
                                    sizeof(float) * ARRAY_SIZE, a, NULL);
@@ -146,10 +155,31 @@ bool CreateMemObjects(cl_context context, cl_mem memObjects[3],
     memObjects[2] = clCreateBuffer(context,
                                    CL_MEM_READ_WRITE,
                                    sizeof(float) * ARRAY_SIZE, NULL, NULL);
-    if(memObjects[0] == NULL || memObjects[1] == NULL || memObjects[2] == NULL)
+    */
+    cl_int errNo;
+    p_memCells = clCreateBuffer(context,
+                                CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+                                sizeof(memory_cell) * MEMORY_SIZE, memCells,
+                                &errNo);
+    cout << errNo << endl;
+    p_pcs = clCreateBuffer(context,
+                           CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+                           sizeof(cl_int) * (N_PROGRAMS * MAX_PROCESSES),
+                           pcs, &errNo);
+    cout << errNo << endl;
+    p_c_proc = clCreateBuffer(context,
+                              CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+                              sizeof(cl_int) * N_PROGRAMS, c_proc, &errNo);
+    cout << errNo << endl;
+    p_n_proc = clCreateBuffer(context,
+                              CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+                              sizeof(cl_int) * N_PROGRAMS, n_proc, &errNo);
+
+    if(p_memCells == NULL || p_pcs == NULL || p_c_proc == NULL ||
+            p_n_proc == NULL)
     {
-        printf("Error creating memory objects. %f %f %f\n", memObjects[0],
-                memObjects[1], memObjects[2]);
+        printf("Error creating memory objects. %f %f %f %f\n", p_memCells,
+                pcs, p_c_proc, p_n_proc);
         return false;
     }
     return true;
@@ -308,11 +338,16 @@ int main(int argc, char** argv)
     cl_device_id device = 0;
     cl_kernel kernel = 0;
     cl_mem memObjects[3] = {0, 0, 0};
+    cl_mem p_memCells = 0;
+    cl_mem p_pcs = 0;
+    cl_mem p_c_proc = 0;
+    cl_mem p_n_proc = 0;
     cl_int errNum;
 
     // Redcode Vars
     memory_cell memory[MEMORY_SIZE];
     int program_counters[N_PROGRAMS][MAX_PROCESSES];
+    cout << sizeof(program_counters) << endl;
     int n_processes[N_PROGRAMS];
     int cur_process[N_PROGRAMS];
 
@@ -340,60 +375,77 @@ int main(int argc, char** argv)
     commandQueue = CreateCommandQueue(context, &device);
     if(commandQueue == NULL)
     {
-        Cleanup(context, commandQueue, program, kernel, memObjects);
+        //Cleanup(context, commandQueue, program, kernel, memObjects);
         return 1;
     }
 
     program = CreateProgram(context, device, "kernel.cl");
     if(program == NULL)
     {
-        Cleanup(context, commandQueue, program, kernel, memObjects);
+        //Cleanup(context, commandQueue, program, kernel, memObjects);
         return 1;
     }
 
-    kernel = clCreateKernel(program, "hello_kernel", NULL);
+    kernel = clCreateKernel(program, "test", NULL);
     if(kernel == NULL)
     {
         printf("Failed to create kernel\n");
     }
 
-    float result[ARRAY_SIZE];
-    float a[ARRAY_SIZE];
-    float b[ARRAY_SIZE];
-    for(int i = 0; i < ARRAY_SIZE; i++)
-    {
-        a[i] = i;
-        b[i] = i * 2;
-        printf("Work-item %d a value: %f, b value: %f\n", i, a[i], b[i]);
-    }
+    //float result[ARRAY_SIZE];
+    //float a[ARRAY_SIZE];
+    //float b[ARRAY_SIZE];
+    //for(int i = 0; i < ARRAY_SIZE; i++)
+    //{
+    //    a[i] = i;
+    //    b[i] = i * 2;
+    //    printf("Work-item %d a value: %f, b value: %f\n", i, a[i], b[i]);
+    //}
 
-    if(!CreateMemObjects(context, memObjects, a, b))
+    if(!CreateMemObjects(context, p_memCells, p_pcs, p_c_proc, p_n_proc,
+                         memory, program_counters, cur_process, n_processes))
     {
         Cleanup(context, commandQueue, program, kernel, memObjects);
         return 1;
     }
 
+    cout << "got here 1" << endl;
+
     // The first argument is the kernel object
     // The second argument is the argument index for the kernel
     // The third argument is the argument size (memory size)
     // The fourth argument is the argument value
+    // Example kernel argument binding
+    /*
     errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[0]);
     errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[1]);
     errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[2]);
+    */
+
+    cout << "cl_mem size: " << sizeof(cl_mem) << endl;
+
+    errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&p_memCells);
+    errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&p_pcs);
+    errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)&p_c_proc);
+    errNum |= clSetKernelArg(kernel, 3, sizeof(cl_mem), (void*)&p_n_proc);
+
+    cout << "got here 2" << endl;
 
     if(errNum != CL_SUCCESS)
     {
-        printf("Error setting kernel arguments.\n");
-        Cleanup(context, commandQueue, program, kernel, memObjects);
+        printf("Error setting kernel arguments. %d\n", errNum);
+        //Cleanup(context, commandQueue, program, kernel, memObjects);
         return 1;
     }
 
     size_t globalWorkSize[1] = { ARRAY_SIZE };
     size_t localWorkSize[1] = { 1 };
 
+    cout << "got here 3" << endl;
     errNum = clEnqueueNDRangeKernel(commandQueue, kernel, 1, NULL,
                                     globalWorkSize, localWorkSize,
                                     0, NULL, NULL);
+    cout << "got here 4" << endl;
     if(errNum != CL_SUCCESS)
     {
         printf("Error queueing kernel for execution.\n");
@@ -401,6 +453,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    /*
     errNum = clEnqueueReadBuffer(commandQueue, memObjects[2], CL_TRUE, 0,
             ARRAY_SIZE * sizeof(float), result, 0, NULL, NULL);
     if(errNum != CL_SUCCESS)
@@ -414,10 +467,11 @@ int main(int argc, char** argv)
     {
         printf("%f ", result[i]);
     }
+    */
 
     printf("\n");
     printf("Executed program succesfully.\n");
-    Cleanup(context, commandQueue, program, kernel, memObjects);
+    //Cleanup(context, commandQueue, program, kernel, memObjects);
 
     return 0;
 }

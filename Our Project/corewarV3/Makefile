@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-Wall
+CFLAGS=-Wall -g
 CXXLIBS=-OpenCL
 
 all: corewarV3_opencl

@@ -1,6 +1,7 @@
 // Very simple opencl kernel
-//#include "sharedredcode.h"
+#include "sharedredcode.h"
 
+/*
 #define MEMORY_SIZE 40 // just little for debugging
 #define N_PROGRAMS 2 // first just test each instruction
 #define MAX_PROCESSES 1000
@@ -35,6 +36,7 @@ typedef struct memory_cell {
     int arg_B;
     addressing mode_B;
 } memory_cell;
+*/
 
 //void do_one_step(memory_cell)
 
@@ -164,7 +166,7 @@ void do_one_step(memory_cell mem[MEMORY_SIZE],
     }
     else
     {
-
+        // Some kind of Queue based logging
     }
 }
 
@@ -187,6 +189,7 @@ void run_cw(memory_cell mem[MEMORY_SIZE], int pcs[N_PROGRAMS][MAX_PROCESSES],
     }
 }
 
+/*
 __kernel void hello_kernel(__global const float *a,
                            __global const float *b,
                            __global float *result)
@@ -197,13 +200,12 @@ __kernel void hello_kernel(__global const float *a,
     // add a and b and store them in the work-item index in result
     result[gid] = a[gid] + b[gid];
 }
-
-/*
-__kernel void redcode_simulator_p(__global memory_cell *mem[MEMORY_SIZE],
-                                  __global int *pcs[N_PROGRAMS][MAX_PROCESSES],
-                                  __global int *c_proc[N_PROGRAMS],
-                                  __global int *n_proc)
-{
-    int gid = get_global_id(0);
-}
 */
+
+__kernel void test(__global memory_cell *mem,
+                   __global int *pcs,
+                   __global int *c_proc,
+                   __global int *n_proc)
+{
+    run_cw(mem, pcs, c_proc, n_proc);
+}
