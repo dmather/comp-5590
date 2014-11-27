@@ -164,16 +164,16 @@ bool CreateMemObjects(cl_context context,
     cout << errNo << endl;
     p_pcs = clCreateBuffer(context,
                            CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-                           sizeof(cl_int) * (N_PROGRAMS * MAX_PROCESSES),
+                           sizeof(int) * (N_PROGRAMS * MAX_PROCESSES),
                            pcs, &errNo);
     cout << errNo << endl;
     p_c_proc = clCreateBuffer(context,
                               CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-                              sizeof(cl_int) * N_PROGRAMS, c_proc, &errNo);
+                              sizeof(int) * N_PROGRAMS, c_proc, &errNo);
     cout << errNo << endl;
     p_n_proc = clCreateBuffer(context,
                               CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-                              sizeof(cl_int) * N_PROGRAMS, n_proc, &errNo);
+                              sizeof(int) * N_PROGRAMS, n_proc, &errNo);
 
     if(p_memCells == NULL || p_pcs == NULL || p_c_proc == NULL ||
             p_n_proc == NULL)
@@ -424,10 +424,10 @@ int main(int argc, char** argv)
 
     cout << "cl_mem size: " << sizeof(cl_mem) << endl;
 
-    errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&p_memCells);
-    errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&p_pcs);
-    errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)&p_c_proc);
-    errNum |= clSetKernelArg(kernel, 3, sizeof(cl_mem), (void*)&p_n_proc);
+    errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &p_memCells);
+    errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &p_pcs);
+    errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &p_c_proc);
+    errNum |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &p_n_proc);
 
     cout << "got here 2" << endl;
 
@@ -451,6 +451,25 @@ int main(int argc, char** argv)
         printf("Error queueing kernel for execution.\n");
         Cleanup(context, commandQueue, program, kernel, memObjects);
         return 1;
+    }
+
+    memory_cell tCells[MEMORY_SIZE];
+
+    clEnqueueReadBuffer(commandQueue, p_memCells, CL_TRUE, 0,
+            sizeof(memory_cell) * MEMORY_SIZE, tCells, 0, NULL, NULL);
+    if(errNum != CL_SUCCESS)
+    {
+        printf("Error reading result buffer.\n");
+        Cleanup(context, commandQueue, program, kernel, memObjects);
+        return 1;
+    }
+
+    for(int i = 0; i < MEMORY_SIZE; i++)
+    {
+        //printf("Index: %d Code: %d, Arg: %d, Mode: %d, Arg: %d, Mode: %d\n",
+        //       i, tCells[i].code, tCells[i].arg_A, tCells[i].mode_A,
+        //       tCells[i].arg_B, tCells[i].mode_B);
+        cout << tCells[i] << endl;
     }
 
     /*

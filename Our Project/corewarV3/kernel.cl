@@ -1,7 +1,7 @@
 // Very simple opencl kernel
-#include "sharedredcode.h"
+//#include "sharedredcode.h"
 
-/*
+
 #define MEMORY_SIZE 40 // just little for debugging
 #define N_PROGRAMS 2 // first just test each instruction
 #define MAX_PROCESSES 1000
@@ -36,7 +36,6 @@ typedef struct memory_cell {
     int arg_B;
     addressing mode_B;
 } memory_cell;
-*/
 
 //void do_one_step(memory_cell)
 
