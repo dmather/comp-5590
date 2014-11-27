@@ -5,9 +5,10 @@
 #include <fstream>
 #include <sstream>
 #include "corewarV3_opencl.h"
+#include "test.h"
 //#include "redcode_fileio.h"
 
-const int ARRAY_SIZE = 100;
+const int ARRAY_SIZE = 300;
 
 using namespace std;
 
@@ -118,7 +119,7 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
         return NULL;
     }
 
-    errNum = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+    errNum = clBuildProgram(program, 0, NULL, "-I ./", NULL, NULL);
     if(errNum != CL_SUCCESS)
     {
         char buildLog[16384];
@@ -143,7 +144,7 @@ bool CreateMemObjects(cl_context context, cl_mem memObjects[3],
                                    sizeof(int) * ARRAY_SIZE, b, NULL);
     memObjects[2] = clCreateBuffer(context,
                                    CL_MEM_READ_WRITE,
-                                   sizeof(int) * ARRAY_SIZE, NULL, NULL);
+                                   sizeof(test) * ARRAY_SIZE, NULL, NULL);
     if(memObjects[0] == NULL || memObjects[1] == NULL || memObjects[2] == NULL)
     {
         printf("Error creating memory objects. %f %f %f\n", memObjects[0],
@@ -208,7 +209,8 @@ int main(int argc, char** argv)
         printf("Failed to create kernel\n");
     }
 
-    int result[ARRAY_SIZE];
+    test result[ARRAY_SIZE];
+    //int result[ARRAY_SIZE];
     int a[ARRAY_SIZE];
     int b[ARRAY_SIZE];
     for(int i = 0; i < ARRAY_SIZE; i++)
@@ -248,7 +250,7 @@ int main(int argc, char** argv)
     }
 
     errNum = clEnqueueReadBuffer(commandQueue, memObjects[2], CL_TRUE, 0,
-            ARRAY_SIZE * sizeof(int), result, 0, NULL, NULL);
+            ARRAY_SIZE * sizeof(test), result, 0, NULL, NULL);
     if(errNum != CL_SUCCESS)
     {
         printf("Error reading result buffer.\n");
@@ -258,7 +260,7 @@ int main(int argc, char** argv)
 
     for(int i = 0; i < ARRAY_SIZE; i++)
     {
-        printf("%d ", result[i]);
+        printf("%d ", result[i].opt1);
     }
 
     printf("\n");
