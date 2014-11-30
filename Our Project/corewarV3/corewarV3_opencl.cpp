@@ -4,6 +4,7 @@
 #include <sstream>
 #include <string.h>
 #include "corewarV3_opencl.h"
+#include <stdlib.h>
 //#include "redcode_fileio.h"
 
 const int ARRAY_SIZE = 1;
@@ -122,12 +123,12 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
     errNum = clBuildProgram(program, 0, NULL, "-I ./", NULL, NULL);
     if(errNum != CL_SUCCESS)
     {
-        char buildLog[262144];
+        char buildLog[16384];
         errNum = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
                                        sizeof(buildLog), buildLog, NULL);
         cout << "clGetProgramBuildInfo: " << errNum << endl;
         cerr << "Error in kernel: " << endl;
-        cerr << buildLog;
+        cout << buildLog << endl;
         clReleaseProgram(program);
         return NULL;
     }
@@ -142,7 +143,8 @@ bool CreateMemObjects(cl_context context,
                       memory_cell memCells[MEMORY_SIZE],
                       int pcs[N_PROGRAMS][MAX_PROCESSES],
                       int *c_proc,
-                      int *n_proc)
+                      int *n_proc,
+					  cl_mem memObjects[4])
 {
     // Example buffer objects
     /*
@@ -157,26 +159,30 @@ bool CreateMemObjects(cl_context context,
                                    sizeof(float) * ARRAY_SIZE, NULL, NULL);
     */
     cl_int errNo;
-    p_memCells = clCreateBuffer(context,
+    memObjects[0] = clCreateBuffer(context,
                                 CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
                                 sizeof(memory_cell) * MEMORY_SIZE, memCells,
                                 &errNo);
     cout << errNo << endl;
-    p_pcs = clCreateBuffer(context,
+    memObjects[1] = clCreateBuffer(context,
                            CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
                            sizeof(int) * (N_PROGRAMS * MAX_PROCESSES),
                            pcs, &errNo);
     cout << errNo << endl;
-    p_c_proc = clCreateBuffer(context,
+    memObjects[2] = clCreateBuffer(context,
                               CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
                               sizeof(int) * N_PROGRAMS, c_proc, &errNo);
     cout << errNo << endl;
-    p_n_proc = clCreateBuffer(context,
+    memObjects[3] = clCreateBuffer(context,
                               CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
                               sizeof(int) * N_PROGRAMS, n_proc, &errNo);
-
-    if(p_memCells == NULL || p_pcs == NULL || p_c_proc == NULL ||
-            p_n_proc == NULL)
+	cout << errNo << endl;
+	memObjects[4] = clCreateBuffer(context,
+							  CL_MEM_WRITE_ONLY, sizeof(int)*10, NULL,
+							  &errNo);
+	cout << errNo << endl;
+    if(memObjects[0] == NULL || memObjects[1] == NULL || memObjects[2] == NULL ||
+            memObjects[3] == NULL || memObjects[4] == NULL)
     {
         printf("Error creating memory objects. %f %f %f %f\n", p_memCells,
                 pcs, p_c_proc, p_n_proc);
@@ -223,7 +229,7 @@ void init_cw(memory_cell mem[MEMORY_SIZE], int pcs[N_PROGRAMS][MAX_PROCESSES],
         mem[i] = blank;
     }
 
-    for(i = 20; i < 25; i++)
+    for(i = 0; i < 5; i++)
     {
         file_one >> mem[i];
     }
@@ -337,12 +343,18 @@ int main(int argc, char** argv)
     cl_program program = 0;
     cl_device_id device = 0;
     cl_kernel kernel = 0;
-    cl_mem memObjects[3] = {0, 0, 0};
+    cl_mem memObjects[5] = {0, 0, 0, 0, 0};
     cl_mem p_memCells = 0;
     cl_mem p_pcs = 0;
     cl_mem p_c_proc = 0;
     cl_mem p_n_proc = 0;
+	int log[10];
     cl_int errNum;
+
+	for(int i = 0; i<10; i++)
+	{
+		log[i] = 0;
+	}
 
     // Redcode Vars
     memory_cell memory[MEMORY_SIZE];
@@ -403,7 +415,7 @@ int main(int argc, char** argv)
     //}
 
     if(!CreateMemObjects(context, p_memCells, p_pcs, p_c_proc, p_n_proc,
-                         memory, program_counters, cur_process, n_processes))
+                         memory, program_counters, cur_process, n_processes, memObjects))
     {
         Cleanup(context, commandQueue, program, kernel, memObjects);
         return 1;
@@ -424,10 +436,11 @@ int main(int argc, char** argv)
 
     cout << "cl_mem size: " << sizeof(cl_mem) << endl;
 
-    errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &p_memCells);
-    errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &p_pcs);
-    errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &p_c_proc);
-    errNum |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &p_n_proc);
+    errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[0]);
+    errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[1]);
+    errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[2]);
+    errNum |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &memObjects[3]);
+	errNum |= clSetKernelArg(kernel, 4, sizeof(cl_mem), &memObjects[4]);
 
     cout << "got here 2" << endl;
 
@@ -455,9 +468,18 @@ int main(int argc, char** argv)
 
     memory_cell tCells[MEMORY_SIZE];
 
-    clEnqueueReadBuffer(commandQueue, p_memCells, CL_TRUE, 0,
+    clEnqueueReadBuffer(commandQueue, memObjects[0], CL_TRUE, 0,
             sizeof(memory_cell) * MEMORY_SIZE, tCells, 0, NULL, NULL);
     if(errNum != CL_SUCCESS)
+    {
+        printf("Error reading result buffer.\n");
+        Cleanup(context, commandQueue, program, kernel, memObjects);
+        return 1;
+    }
+	
+	clEnqueueReadBuffer(commandQueue, memObjects[4], CL_TRUE, 0,
+            sizeof(int)*10, log, 0, NULL, NULL);
+	if(errNum != CL_SUCCESS)
     {
         printf("Error reading result buffer.\n");
         Cleanup(context, commandQueue, program, kernel, memObjects);
@@ -471,6 +493,11 @@ int main(int argc, char** argv)
         //       tCells[i].arg_B, tCells[i].mode_B);
         cout << tCells[i] << endl;
     }
+	cout << "Number of processes: " << n_processes[1] << endl;;
+	for(int i = 0; i < 10; i++)
+	{
+		cout << log[i] << endl;
+	}
 
     /*
     errNum = clEnqueueReadBuffer(commandQueue, memObjects[2], CL_TRUE, 0,
