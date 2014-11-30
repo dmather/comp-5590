@@ -348,6 +348,8 @@ int main(int argc, char** argv)
     cl_mem p_pcs = 0;
     cl_mem p_c_proc = 0;
     cl_mem p_n_proc = 0;
+    // Temporary log to act as a buffer to transmit information back from
+    // the kernel.
 	int log[10];
     cl_int errNum;
 
@@ -434,8 +436,7 @@ int main(int argc, char** argv)
     errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[2]);
     */
 
-    cout << "cl_mem size: " << sizeof(cl_mem) << endl;
-
+    // Setting kernel args.
     errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[0]);
     errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[1]);
     errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[2]);
@@ -468,6 +469,7 @@ int main(int argc, char** argv)
 
     memory_cell tCells[MEMORY_SIZE];
 
+    // Read from the write only kernel buffer to get information back.
     clEnqueueReadBuffer(commandQueue, memObjects[0], CL_TRUE, 0,
             sizeof(memory_cell) * MEMORY_SIZE, tCells, 0, NULL, NULL);
     if(errNum != CL_SUCCESS)
@@ -488,9 +490,6 @@ int main(int argc, char** argv)
 
     for(int i = 0; i < MEMORY_SIZE; i++)
     {
-        //printf("Index: %d Code: %d, Arg: %d, Mode: %d, Arg: %d, Mode: %d\n",
-        //       i, tCells[i].code, tCells[i].arg_A, tCells[i].mode_A,
-        //       tCells[i].arg_B, tCells[i].mode_B);
         cout << tCells[i] << endl;
     }
 	cout << "Number of processes: " << n_processes[1] << endl;;
