@@ -1,10 +1,17 @@
 #ifndef SHAREDREDCODE_H
 #define SHAREDREDCODE_H
 
-#define MEMORY_SIZE 40 // just little for debugging
-#define N_PROGRAMS 2 // first just test each instruction
+#define MEMORY_SIZE 4000 // just little for debugging
+#define N_PROGRAMS 4 // first just test each instruction
 #define MAX_PROCESSES 1000
+#define MAX_STEPS 10000
+#define MAX_PROGRAM_LENGTH 100
+#define POPULATION_SIZE 40
+#define MAX_GENERATIONS 100
 #define MAX_ITERATIONS 10
+#define N_TOURNAMENTS POPULATION_SIZE/2
+#define N_MODES 3
+#define N_OPERATIONS 13
 
 typedef enum instruction {
     DAT, // not executable, values stored in B

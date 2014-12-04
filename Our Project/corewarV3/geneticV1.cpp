@@ -27,6 +27,7 @@
 //                  init_cw
 //                  show_results -- was just for debugging, replaced by show_part
 
+#include "sharedredcode.h"
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -34,7 +35,7 @@
 #include <string.h>
 
 using namespace std;
-
+/*
 enum instruction {DAT,    // not executable, values stored in B 
 		  MOV,    // copy A to B
 		  ADD,    // add A into B (storing in B)
@@ -62,7 +63,9 @@ struct memory_cell{
   int arg_B;
   addressing mode_B;
 };
+*/
 
+/*
 const int N_MODES = 3;
 const int N_OPERATIONS = 13;
 
@@ -75,6 +78,7 @@ const int POPULATION_SIZE = 40; // I picked half the number of processors on the
 const int MAX_GENERATIONS = 100; // I picked this arbitrarily ... should be bigger
 
 const int N_TOURNAMENTS = POPULATION_SIZE / 2;
+*/
 
 
 
