@@ -13,3 +13,6 @@ corewarV3_opencl: corewarV3_opencl.cpp
 
 #redcode_fileio.o: redcode_fileio.cpp
 #	$(CC) $(CFLAGS) -lOpenCL redcode_fileio.cpp
+
+geneticV1_opencl: geneticV1_opencl.cpp
+	$(CC) $(CFLAGS) -lOpenCL $^ -o $@
