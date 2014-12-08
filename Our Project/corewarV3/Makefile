@@ -2,7 +2,7 @@ CC=g++
 CFLAGS=-Wall -g
 CXXLIBS=-OpenCL
 
-all: corewarV3_opencl
+all: corewarV3_opencl geneticV1_opencl
 
 #corewarV3_opencl: corewarV3_opencl.o redcode_fileio.o 
 corewarV3_opencl: corewarV3_opencl.cpp

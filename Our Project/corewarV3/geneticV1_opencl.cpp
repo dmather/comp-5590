@@ -141,7 +141,7 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
                          const char* fileName);
 
 // Figure out how many objects need to be in memObjects
-bool CreateMemObjects(cl_context context, cl_mem memObjects[4]);
+bool CreateMemObjects(cl_context context, cl_mem memObjects[4], int test[10]);
 
 int main()
 {
@@ -172,6 +172,7 @@ int main()
   cl_kernel kernel = 0;
   cl_mem memObjects[1] = { 0 };
   cl_int errNum;
+  int test[10];
 
   srand(1234); // set a specific seed for replicability in debugging
 
@@ -261,6 +262,26 @@ int main()
       return 1;
   }
 
+  char name[2048] = "";
+  size_t workItems[3];
+  size_t paramSize = -1;
+
+  errNum = clGetDeviceInfo(device, CL_DEVICE_NAME,
+                           sizeof(name),
+                           &name, &paramSize);
+  printf("Requested %d bytes\n", paramSize);
+  printf("Device name: %s.\n", name);
+  errNum = clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES,
+                           sizeof(workItems),
+                           &workItems, &paramSize);
+  printf("Requested %d bytes\n", paramSize);
+  printf("Max work items: %lu\n", workItems[0]);
+  if(errNum != CL_SUCCESS)
+  {
+      printf("Error getting device info: %d\n", errNum);
+  }
+
+
   program = CreateProgram(context, device, "geneticKernel.cl");
   if(program == NULL)
   {
@@ -273,7 +294,7 @@ int main()
       printf("Failed to create kernel.\n");
   }
 
-  if(!CreateMemObjects(context, memObjects))
+  if(!CreateMemObjects(context, memObjects, test))
   {
       return 1;
   }
@@ -287,12 +308,22 @@ int main()
   }
 
   // This needs to be adjusted
-  size_t globalWorkSize[1] = { 1 };
+  size_t globalWorkSize[1] = { 1000 };
   size_t localWorkSize[1] = { 1 };
 
   errNum = clEnqueueNDRangeKernel(commandQueue, kernel, 1, NULL,
                                   globalWorkSize, localWorkSize,
                                   0, NULL, NULL);
+  int output[10];
+
+  clEnqueueReadBuffer(commandQueue, memObjects[0], CL_TRUE, 0,
+          sizeof(output), output, 0, NULL, NULL);
+
+  for(int i = 0; i<10; i++)
+  {
+      printf("Buffer value: %d\n", output[i]);
+  }
+
   if(errNum != CL_SUCCESS)
   {
       printf("Error queueing kernel for execution.\n");
@@ -379,7 +410,7 @@ cl_command_queue CreateCommandQueue(cl_context context, cl_device_id *device)
         return NULL;
     }
 
-    *device = device[0];
+    *device = devices[0];
     delete [] devices;
     return commandQueue;
 }
@@ -428,7 +459,8 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
 }
 
 bool CreateMemObjects(cl_context context,
-                      cl_mem memObjects[1])
+                      cl_mem memObjects[1],
+                      int test[10])
 {
     // Example buffer objects
     /*
@@ -445,7 +477,7 @@ bool CreateMemObjects(cl_context context,
     cl_int errNo;
     memObjects[0] = clCreateBuffer(context,
                                 CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-                                sizeof(memory_cell) * MEMORY_SIZE, NULL,
+                                sizeof(int) * 10, test,
                                 &errNo);
     cout << errNo << endl;
     /*
