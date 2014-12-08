@@ -182,6 +182,7 @@ int main()
   cout << "Before: " << endl;
   show_part(population);
 
+  /*
   for(generation=0;generation<MAX_GENERATIONS;generation++){
     // run tournaments
     clear_survivals(survivals);
@@ -234,7 +235,7 @@ int main()
     }
 
   }  
-
+  */
   cout << "After: " << endl;
   show_part(population);
 
