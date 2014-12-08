@@ -28,6 +28,7 @@
 //                  show_results -- was just for debugging, replaced by show_part
 
 #include "sharedredcode.h"
+#include "geneticV1_opencl.h"
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -37,111 +38,9 @@
 #include <CL/cl.h>
 
 using namespace std;
-/*
-enum instruction {DAT,    // not executable, values stored in B 
-		  MOV,    // copy A to B
-		  ADD,    // add A into B (storing in B)
-		  SUB,    // subtract A from B (storing in B)
-		  MUL,    // multiply A into B (storing in B)
-		  DIV,    // B / A (storing in B)
-		  MOD,    // B mod A (storing in B)
-		  JMP,    // transfer control to address A
-		  JMZ,    // transfer control to address A if B is zero
-		  DJZ,    // decreent B and if B is now 0, transfer control to A
-		  CMP,    // if A != B skip next instruction
-		  SPL,    // split execution into next instruction and instruction at A
-		  NOP};   // do nothing -- used as "punctiion" for genetic algorithm
 
-enum addressing{
-  IMM, // immediate (#)
-  DIR, // direct ($)
-  IND, // indirect (@)
-};
-
-struct memory_cell{
-  instruction code;
-  int arg_A;
-  addressing mode_A;
-  int arg_B;
-  addressing mode_B;
-};
-*/
-
-/*
-const int N_MODES = 3;
-const int N_OPERATIONS = 13;
-
-const int MEMORY_SIZE = 4000; // This is the "official" size ... could be anything really
-const int N_PROGRAMS = 4; // first just test each instruct
-const int MAX_PROCESSES = 100; // I picked this arbitrarily ... no idea what it should be
-const int MAX_STEPS = 10000; // I picked this arbitrarily ... there's a fair chance it is too low.
-const int MAX_PROGRAM_LENGTH = 100; // I picked this arbitrarily ... no idea what it should be
-const int POPULATION_SIZE = 40; // I picked half the number of processors on the GPU in the lab
-const int MAX_GENERATIONS = 100; // I picked this arbitrarily ... should be bigger
-
-const int N_TOURNAMENTS = POPULATION_SIZE / 2;
-*/
-
-
-
-void clear_cw(memory_cell mem[MEMORY_SIZE], 
-	      int pcs[N_PROGRAMS][MAX_PROCESSES], 
-	      int c_proc[N_PROGRAMS], 
-	      int n_proc[N_PROGRAMS]);
-
-void clear_survivals(int survivals[POPULATION_SIZE]);
-
-void select_programs(memory_cell pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH],
-		     memory_cell progs[N_PROGRAMS][MAX_PROGRAM_LENGTH],
-		     int selected[N_PROGRAMS]);
-
-void load_cw(memory_cell mem[MEMORY_SIZE],
-	     int pcs[N_PROGRAMS][MAX_PROCESSES],
-             int c_proc[N_PROGRAMS], 
-             int n_proc[N_PROGRAMS],
-	     int starting_locations[N_PROGRAMS],
-	     memory_cell program[N_PROGRAMS][MAX_PROGRAM_LENGTH]);
-
-void run_cw(memory_cell mem[MEMORY_SIZE], 
-            int pcs[N_PROGRAMS][MAX_PROCESSES], 
-            int c_proc[N_PROGRAMS], 
-	    int n_proc[N_PROGRAMS],
-	    int& duration);
-
-void do_one_step(memory_cell mem[MEMORY_SIZE], 
-		 int pcs[N_PROGRAMS][MAX_PROCESSES], 
-		 int c_proc[N_PROGRAMS], 
-		 int n_proc[N_PROGRAMS], 
-		 int prog);
-
-int max_t_length(int t_lengths[N_TOURNAMENTS]);
-
-void generate_program(memory_cell prog[MAX_PROGRAM_LENGTH]);
-void generate_population(memory_cell pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH]);
-void generate_starts(int starts[N_PROGRAMS]);
-void record_survivals(int survials[POPULATION_SIZE],
-		      int n_process[N_PROGRAMS], 
-		      int selected[N_PROGRAMS]);
-
-void breed(memory_cell father[MAX_PROGRAM_LENGTH],
-	   memory_cell mother[MAX_PROGRAM_LENGTH],
-	   memory_cell child[MAX_PROGRAM_LENGTH]);
-
-void show_part(memory_cell population[POPULATION_SIZE][MAX_PROGRAM_LENGTH]);
-
-int survivor_count(int n_proc[MAX_PROCESSES]);
 ostream& operator<<(ostream& outs, const memory_cell& cell);
 istream& operator>>(istream& ins, memory_cell& cell);
-
-cl_context CreateContext(void);
-
-cl_command_queue CreateCommandQueue(cl_context context, cl_device_id *device);
-
-cl_program CreateProgram(cl_context context, cl_device_id device,
-                         const char* fileName);
-
-// Figure out how many objects need to be in memObjects
-bool CreateMemObjects(cl_context context, cl_mem memObjects[4], int test[1000]);
 
 int main()
 {
