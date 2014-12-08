@@ -141,7 +141,7 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
                          const char* fileName);
 
 // Figure out how many objects need to be in memObjects
-bool CreateMemObjects(cl_context context, cl_mem memObjects[4], int test[10]);
+bool CreateMemObjects(cl_context context, cl_mem memObjects[4], int test[1000]);
 
 int main()
 {
@@ -172,7 +172,7 @@ int main()
   cl_kernel kernel = 0;
   cl_mem memObjects[1] = { 0 };
   cl_int errNum;
-  int test[10];
+  int test[1000];
 
   srand(1234); // set a specific seed for replicability in debugging
 
@@ -314,12 +314,12 @@ int main()
   errNum = clEnqueueNDRangeKernel(commandQueue, kernel, 1, NULL,
                                   globalWorkSize, localWorkSize,
                                   0, NULL, NULL);
-  int output[10];
+  int output[1000];
 
   clEnqueueReadBuffer(commandQueue, memObjects[0], CL_TRUE, 0,
           sizeof(output), output, 0, NULL, NULL);
 
-  for(int i = 0; i<10; i++)
+  for(int i = 0; i<1000; i++)
   {
       printf("Buffer value: %d\n", output[i]);
   }
@@ -460,7 +460,7 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
 
 bool CreateMemObjects(cl_context context,
                       cl_mem memObjects[1],
-                      int test[10])
+                      int test[1000])
 {
     // Example buffer objects
     /*
@@ -477,7 +477,7 @@ bool CreateMemObjects(cl_context context,
     cl_int errNo;
     memObjects[0] = clCreateBuffer(context,
                                 CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-                                sizeof(int) * 10, test,
+                                sizeof(int) * 1000, test,
                                 &errNo);
     cout << errNo << endl;
     /*
