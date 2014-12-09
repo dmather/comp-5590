@@ -152,11 +152,6 @@ void do_one_step(memory_cell mem[MEMORY_SIZE], int pcs[N_PROGRAMS][MAX_PROCESSES
   return;
 }
 
-__kernel void test(__global int *output)
-{
-    int gid = get_global_id(0);
-    output[gid] = 5*gid;
-}
 
 void clear_cw(memory_cell mem[MEMORY_SIZE],
               int pcs[N_PROGRAMS][MAX_PROCESSES],
@@ -243,7 +238,7 @@ void run_cw(memory_cell mem[MEMORY_SIZE],
             int pcs[N_PROGRAMS][MAX_PROCESSES],
             int c_proc[N_PROGRAMS],
             int n_proc[N_PROGRAMS],
-            int *duration)
+            int duration)
 {
   int time_step;
   int i, j;
@@ -275,3 +270,28 @@ int max_t_length(int t_lengths[N_TOURNAMENTS])
 
   return max;
 }
+
+
+__kernel void test(__global memory_cell *mem,
+                   __global int *pcs,
+                   __global int *c_proc,
+                   __global int *n_proc,
+                   __global int *duration,
+                   __global int *survivals,
+                   __global int *selected)
+{
+    // Get the work unit ID
+    int gid = get_global_id(0);
+    //memory_cell tMem[MEMORY_SIZE];
+    //memcpy(tMem, &mem[gid], sizeof(tMem));
+    run_cw(&mem[gid], pcs[gid], c_proc[gid], n_proc[gid], duration[gid]);
+    record_survivals(survivals[gid], n_proc[gid], selected[gid]);
+}
+
+/*
+__kernel void test(__global int *output)
+{
+    int gid = get_global_id(0);
+    output[gid] = 5*gid;
+}
+*/
