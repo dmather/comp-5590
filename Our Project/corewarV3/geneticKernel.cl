@@ -278,10 +278,12 @@ __kernel void test(__global memory_cell *mem,
                    __global int *n_proc,
                    __global int *duration,
                    __global int *survivals,
-                   __global int *selected)
+                   __global int *selected,
+                   __global int *test)
 {
     // Get the work unit ID
     int gid = get_global_id(0);
+    test[gid] = 5;
     //memory_cell tMem[MEMORY_SIZE];
     //memcpy(tMem, &mem[gid], sizeof(tMem));
     run_cw(&mem[gid], pcs[gid], c_proc[gid], n_proc[gid], duration[gid]);

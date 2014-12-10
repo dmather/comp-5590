@@ -69,13 +69,14 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
 //bool CreateMemObjects(cl_context context, cl_mem memObjects[4], int test[1000]);
 
 bool CreateMemObjects(cl_context context,
-                      cl_mem memObjects[7],
-                      memory_cell mem[N_TOURNAMENTS][MEMORY_SIZE],
-                      int pcs[N_TOURNAMENTS][N_PROGRAMS][MAX_PROCESSES],
-                      int c_proc[N_TOURNAMENTS][N_PROGRAMS],
-                      int n_proc[N_TOURNAMENTS][N_PROGRAMS],
-                      int tournament_lengths[N_TOURNAMENTS],
-                      int survivals[N_TOURNAMENTS][POPULATION_SIZE],
-                      int selected[N_TOURNAMENTS][N_PROGRAMS]);
+                      cl_mem memObjects[8],
+memory_cell mem[N_TOURNAMENTS][MEMORY_SIZE],
+int pcs[N_TOURNAMENTS][N_PROGRAMS][MAX_PROCESSES],
+int c_proc[N_TOURNAMENTS][N_PROGRAMS],
+int n_proc[N_TOURNAMENTS][N_PROGRAMS],
+int tournament_lengths[N_TOURNAMENTS],
+int survivals[N_TOURNAMENTS][POPULATION_SIZE],
+int selected[N_TOURNAMENTS][N_PROGRAMS],
+int test[N_TOURNAMENTS]);
 
 #endif // GENETICV1_OPENCL_H
