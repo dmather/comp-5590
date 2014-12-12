@@ -108,6 +108,7 @@ int main()
     char name[2048] = "";
     size_t workItems[3];
     size_t paramSize = -1;
+    ulong localMemSize = -1;
     // This needs to be adjusted
     size_t globalWorkSize[1] = { N_TOURNAMENTS };
     size_t localWorkSize[1] = { 1 };
@@ -122,6 +123,12 @@ int main()
                              &workItems, &paramSize);
     printf("Requested %d bytes\n", paramSize);
     printf("Max work items: %lu\n", workItems[0]);
+    errNum = clGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE,
+                             sizeof(localMemSize),
+                             &localMemSize, &paramSize);
+    printf("Requested %d bytes\n", paramSize);
+    printf("Local Memory size: %lu\n", localMemSize);
+
     if(errNum != CL_SUCCESS)
     {
         printf("Error getting device info: %d\n", errNum);
@@ -181,6 +188,7 @@ int main()
         for(i=0;i<N_TOURNAMENTS;i++){
             clear_cw(memory,program_counters,curr_process,n_processes);
             generate_starts(starts);
+            // Copy the starting positions into gpu_starts array.
             memcpy(gpu_starts[i], starts, sizeof(int) * N_PROGRAMS);
             //select_programs(population,current_programs,selected);
             //load_cw(memory,program_counters,curr_process,
