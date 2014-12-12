@@ -71,6 +71,7 @@ int main()
     int gpu_tournament_lengths[N_TOURNAMENTS];
     int gpu_survivals[N_TOURNAMENTS][POPULATION_SIZE];
     int gpu_selected[N_TOURNAMENTS][N_PROGRAMS];
+    int gpu_starts[N_TOURNAMENTS][N_PROGRAMS];
 
     // OpenCL variables
     cl_context context = 0;
@@ -78,7 +79,7 @@ int main()
     cl_program  program = 0;
     cl_device_id device = 0;
     cl_kernel kernel = 0;
-    cl_mem memObjects[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+    cl_mem memObjects[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     cl_int errNum;
     int test[N_TOURNAMENTS];
 
@@ -180,29 +181,31 @@ int main()
         for(i=0;i<N_TOURNAMENTS;i++){
             clear_cw(memory,program_counters,curr_process,n_processes);
             generate_starts(starts);
-            select_programs(population,current_programs,selected);
-            load_cw(memory,program_counters,curr_process,
-                    n_processes,starts,current_programs);
+            memcpy(gpu_starts[i], starts, sizeof(int) * N_PROGRAMS);
+            //select_programs(population,current_programs,selected);
+            //load_cw(memory,program_counters,curr_process,
+            //        n_processes,starts,current_programs);
             // Prime memory buffers to pass to GPU
-            memcpy(gpu_mem[i], memory, sizeof(memory));
-            memcpy(gpu_pcs[i], program_counters, sizeof(program_counters));
-            memcpy(gpu_c_proc[i], curr_process, sizeof(current_programs));
-            memcpy(gpu_n_proc[i], n_processes, sizeof(n_processes));
+            //memcpy(gpu_mem[i], memory, sizeof(memory));
+            //memcpy(gpu_pcs[i], program_counters, sizeof(program_counters));
+            //memcpy(gpu_c_proc[i], curr_process, sizeof(current_programs));
+            //memcpy(gpu_n_proc[i], n_processes, sizeof(n_processes));
             //gpu_tournament_lengths
-            memcpy(gpu_survivals[i], survivals, sizeof(survivals));
-            memcpy(gpu_selected[i], selected, sizeof(selected));
+            //memcpy(gpu_survivals[i], survivals, sizeof(survivals));
+            //memcpy(gpu_selected[i], selected, sizeof(selected));
             //run_cw(memory,program_counters,curr_process,n_processes,tournament_lengths[i]);
             //record_survivals(survivals,n_processes,selected);
         }
         if(!CreateMemObjects(context, memObjects, gpu_mem, gpu_pcs, gpu_c_proc,
                              gpu_n_proc, gpu_tournament_lengths, gpu_survivals,
-                             gpu_selected, test))
+                             gpu_selected, test, gpu_starts))
         {
             printf("Failed to create mem objects\n");
             return 1;
         }
 
         errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[7]);
+        errNum = clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[8]);
         //errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[1]);
         //errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[2]);
         //errNum |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &memObjects[3]);
@@ -262,15 +265,23 @@ int main()
         errNum = clEnqueueReadBuffer(commandQueue, memObjects[7], CL_TRUE, 0,
                 sizeof(int) * N_TOURNAMENTS, test, 0, NULL, NULL);
         cout << "Read Buffer Error: " << errNum << endl;
+        errNum = clEnqueueReadBuffer(commandQueue, memObjects[8], CL_TRUE, 0,
+                sizeof(int) * (N_TOURNAMENTS * N_PROGRAMS), starts, 0, NULL,
+                NULL);
+        cout << "Read Buffer Error: " << errNum << endl;
 
         //tournament_lengths = &gpu_tournament_lengths;
         memcpy(tournament_lengths, gpu_tournament_lengths,
                sizeof(gpu_tournament_lengths));
 
+
         for(i=0; i<N_TOURNAMENTS;i++)
         {
-            cout << test[i] << endl;
+            cout << "Random Number: " << test[i] << endl;
+            cout << "Program starts: " << gpu_starts[i][1] << endl;
         }
+
+        cout << "Iteration: " << generation << endl;
         //cout << generation << endl;
 
         max_tournament_length[generation] = max_t_length(tournament_lengths);
@@ -471,7 +482,8 @@ bool CreateMemObjects(cl_context context,
                       int tournament_lengths[N_TOURNAMENTS],
                       int survivals[N_TOURNAMENTS][POPULATION_SIZE],
                       int selected[N_TOURNAMENTS][N_PROGRAMS],
-                      int test[N_TOURNAMENTS])
+                      int test[N_TOURNAMENTS],
+                      int starts[N_TOURNAMENTS][N_PROGRAMS])
 {
     cl_int errNo;
     // Example buffer objects
@@ -507,6 +519,11 @@ bool CreateMemObjects(cl_context context,
     memObjects[7] = clCreateBuffer(context,
                                    CL_MEM_WRITE_ONLY,
                                    sizeof(int) * N_TOURNAMENTS, NULL, &errNo);
+    cout << "Cl Error: " << errNo << endl;
+    memObjects[8] = clCreateBuffer(context,
+                                   CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+                                   sizeof(int) * (N_TOURNAMENTS * N_PROGRAMS),
+                                   starts, &errNo);
     cout << "Cl Error: " << errNo << endl;
     /*
     memObjects[1] = clCreateBuffer(context,

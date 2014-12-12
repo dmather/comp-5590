@@ -77,6 +77,7 @@ int n_proc[N_TOURNAMENTS][N_PROGRAMS],
 int tournament_lengths[N_TOURNAMENTS],
 int survivals[N_TOURNAMENTS][POPULATION_SIZE],
 int selected[N_TOURNAMENTS][N_PROGRAMS],
-int test[N_TOURNAMENTS]);
+int test[N_TOURNAMENTS],
+int starts[N_TOURNAMENTS][N_PROGRAMS]);
 
 #endif // GENETICV1_OPENCL_H

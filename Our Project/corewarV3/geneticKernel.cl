@@ -3,21 +3,165 @@
 // http://cas.ee.ic.ac.uk/people/dt10/research/rngs-gpu-mwc64x.html#overview
 #include "cl/mwc64x.cl"
 
-// Count how many have processes still running
-int survivor_count(int n_proc[MAX_PROCESSES]){
-  int count = 0;
+void do_one_step(memory_cell mem[MEMORY_SIZE],
+                 int pcs[N_PROGRAMS][MAX_PROCESSES], int c_proc[N_PROGRAMS],
+                 int n_proc[N_PROGRAMS], int i);
 
-  for(int i = 0; i < MAX_PROCESSES; i++){
-    if(n_proc[i] > 0){
-      count++;
+int survivor_count(int n_proc[MAX_PROCESSES]);
+
+void record_survivals(int survivals[POPULATION_SIZE],
+                      int n_process[N_PROGRAMS],
+                      int selected[N_PROGRAMS]);
+
+// generates a program with random instructions
+void generate_program(memory_cell prog[MAX_PROGRAM_LENGTH], mwc64x_state_t rng)
+{
+  int i;
+  for(i=0;i<MAX_PROGRAM_LENGTH;i++){
+    //prog[i].code = (instruction) (rand() % N_OPERATIONS);
+    prog[i].code = (instruction) (MWC64X_NextUint(&rng) % N_OPERATIONS);
+    //prog[i].arg_A = rand() % MEMORY_SIZE;
+    prog[i].arg_A = MWC64X_NextUint(&rng) % MEMORY_SIZE;
+    //prog[i].mode_A = (addressing) (rand() % N_MODES);
+    prog[i].mode_A = (addressing) (MWC64X_NextUint(&rng) % N_MODES);
+    //prog[i].arg_B = rand() % MEMORY_SIZE;
+    prog[i].arg_B = MWC64X_NextUint(&rng) % MEMORY_SIZE;
+    //prog[i].mode_B = (addressing) (rand() % N_MODES);
+    prog[i].mode_B = (addressing) (MWC64X_NextUint(&rng) % N_MODES);
+  }
+}
+
+// generates an array of programs
+void generate_population(memory_cell pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH],
+                         mwc64x_state_t rng)
+{
+  int i;
+
+  for(i=0;i<POPULATION_SIZE;i++){
+    generate_program(pop[i], rng);
+  }
+}
+
+void select_programs(memory_cell pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH],
+                     memory_cell progs[N_PROGRAMS][MAX_PROGRAM_LENGTH],
+                     int selected[N_PROGRAMS],
+                     mwc64x_state_t rng)
+{
+  int i,j;
+  int r;
+
+  for(i=0;i<N_PROGRAMS;i++){
+    //r = rand() % POPULATION_SIZE;
+    r = MWC64X_NextUint(&rng) % POPULATION_SIZE;
+    selected[i] = r;
+    for(j=0;j<MAX_PROGRAM_LENGTH;j++){
+      progs[i][j] = pop[r][j];
     }
   }
 
-  return count;
+  return;
 }
 
+// Not to be run on the GPU
+/*
+void breed(memory_cell father[MAX_PROGRAM_LENGTH],
+           memory_cell mother[MAX_PROGRAM_LENGTH],
+           memory_cell child[MAX_PROGRAM_LENGTH])
+{
+  int cut_location;
+  int point_mutation;
+  int i;
+
+  cut_location = (rand() % (MAX_PROGRAM_LENGTH - 2)) + 1;
+  point_mutation = rand() % MAX_PROGRAM_LENGTH;
+
+  for(i=0;i<cut_location;i++){
+    child[i] = father[i];
+  }
+  for(i=cut_location;i<MAX_PROGRAM_LENGTH;i++){
+    child[i] = mother[i];
+  }
+
+  child[point_mutation].code = (instruction) (rand() % N_OPERATIONS);
+  child[point_mutation].arg_A = rand() % MEMORY_SIZE;
+  child[point_mutation].mode_A = (addressing) (rand() % N_MODES);
+  child[point_mutation].arg_B = rand() % MEMORY_SIZE;
+  child[point_mutation].mode_B = (addressing) (rand() % N_MODES);
+
+  return;
+}
+*/
+
+
+void load_cw(memory_cell mem[MEMORY_SIZE],
+             int pcs[N_PROGRAMS][MAX_PROCESSES],
+             int c_proc[N_PROGRAMS],
+             int n_proc[N_PROGRAMS],
+             int starting_locations[N_PROGRAMS],
+             memory_cell program[N_PROGRAMS][MAX_PROGRAM_LENGTH])
+{
+  int i,j;
+  int s;
+
+  for(i=0;i<N_PROGRAMS;i++){
+    c_proc[i]=0;
+    n_proc[i]=1;
+    pcs[i][0]=starting_locations[i];
+    s = starting_locations[i];
+    for(j=0;j<MAX_PROGRAM_LENGTH;j++){
+      mem[s+j] = program[i][j];
+    }
+  }
+
+  return;
+}
+
+
+
 // I think this works now
-void do_one_step(memory_cell mem[MEMORY_SIZE], int pcs[N_PROGRAMS][MAX_PROCESSES], int c_proc[N_PROGRAMS], int n_proc[N_PROGRAMS], int i)
+// Survivors have a non-zero entry in n_proc
+void run_cw(memory_cell mem[MEMORY_SIZE],
+            int pcs[N_PROGRAMS][MAX_PROCESSES],
+            int c_proc[N_PROGRAMS],
+            int n_proc[N_PROGRAMS],
+            int duration)
+{
+  int time_step;
+  int i, j;
+
+  time_step = 1;
+  while(time_step <= MAX_STEPS && survivor_count(n_proc) > 2){
+    //    cerr << "time_step = " << time_step << endl;
+    for(i=0;i<N_PROGRAMS;i++){
+      do_one_step(mem, pcs, c_proc, n_proc, i);
+    }
+    time_step++;
+  }
+
+  duration = time_step;
+
+  return;
+}
+
+int max_t_length(int t_lengths[N_TOURNAMENTS])
+{
+  int max = 0;
+  int i;
+
+  for(i=0;i<N_TOURNAMENTS;i++){
+    if(t_lengths[i] > max){
+      max = t_lengths[i];
+    }
+  }
+
+  return max;
+}
+
+
+// I think this works now
+void do_one_step(memory_cell mem[MEMORY_SIZE],
+                 int pcs[N_PROGRAMS][MAX_PROCESSES], int c_proc[N_PROGRAMS],
+                 int n_proc[N_PROGRAMS], int i)
 {
   int prog_counter;
   int pointer_value;
@@ -155,46 +299,29 @@ void do_one_step(memory_cell mem[MEMORY_SIZE], int pcs[N_PROGRAMS][MAX_PROCESSES
   return;
 }
 
-
-void clear_cw(memory_cell mem[MEMORY_SIZE],
-              int pcs[N_PROGRAMS][MAX_PROCESSES],
-              int c_proc[N_PROGRAMS],
-              int n_proc[N_PROGRAMS])
+// really just for debugging
+void show_part(memory_cell population[POPULATION_SIZE][MAX_PROGRAM_LENGTH])
 {
-  int i, j;
-  memory_cell blank;
+  int i;
 
-  blank.code = DAT;
-  blank.arg_A = 0;
-  blank.arg_B = 0;
-  blank.mode_A = DIR;
-  blank.mode_B = DIR;
-
-  // Clear Memory
-  for(i=0;i<MEMORY_SIZE;i++){
-    mem[i] = blank;
-  }
-
-  for(i=0;i<N_PROGRAMS;i++){
-    c_proc[i] = 0;
-    n_proc[i] = 0;
-    for(j=0;j<MAX_PROCESSES;j++){
-      pcs[i][j] = 0;
-    }
+  for(i=0;i<10;i++){
+    //cout << population[0][i] << endl;
   }
 
   return;
 }
 
-void clear_survivals(int survivals[POPULATION_SIZE])
-{
-  int i;
+// Count how many have processes still running
+int survivor_count(int n_proc[MAX_PROCESSES]){
+  int count = 0;
 
-  for(i=0;i<POPULATION_SIZE;i++){
-    survivals[i] = 0;
+  for(int i = 0; i < MAX_PROCESSES; i++){
+    if(n_proc[i] > 0){
+      count++;
+    }
   }
 
-  return;
+  return count;
 }
 
 void record_survivals(int survivals[POPULATION_SIZE],
@@ -211,89 +338,32 @@ void record_survivals(int survivals[POPULATION_SIZE],
   return;
 }
 
-void load_cw(memory_cell mem[MEMORY_SIZE],
-             int pcs[N_PROGRAMS][MAX_PROCESSES],
-             int c_proc[N_PROGRAMS],
-             int n_proc[N_PROGRAMS],
-             int starting_locations[N_PROGRAMS],
-             memory_cell program[N_PROGRAMS][MAX_PROGRAM_LENGTH])
-{
-  int i,j;
-  int s;
-
-  for(i=0;i<N_PROGRAMS;i++){
-    c_proc[i]=0;
-    n_proc[i]=1;
-    pcs[i][0]=starting_locations[i];
-    s = starting_locations[i];
-    for(j=0;j<MAX_PROGRAM_LENGTH;j++){
-      mem[s+j] = program[i][j];
-    }
-  }
-
-  return;
-}
-
-
-// I think this works now
-// Survivors have a non-zero entry in n_proc
-void run_cw(memory_cell mem[MEMORY_SIZE],
-            int pcs[N_PROGRAMS][MAX_PROCESSES],
-            int c_proc[N_PROGRAMS],
-            int n_proc[N_PROGRAMS],
-            int duration)
-{
-  int time_step;
-  int i, j;
-
-  time_step = 1;
-  while(time_step <= MAX_STEPS && survivor_count(n_proc) > 2){
-    //    cerr << "time_step = " << time_step << endl;
-    for(i=0;i<N_PROGRAMS;i++){
-      do_one_step(mem,pcs,c_proc,n_proc,i);
-    }
-    time_step++;
-  }
-
-  duration = time_step;
-
-  return;
-}
-
-int max_t_length(int t_lengths[N_TOURNAMENTS])
-{
-  int max = 0;
-  int i;
-
-  for(i=0;i<N_TOURNAMENTS;i++){
-    if(t_lengths[i] > max){
-      max = t_lengths[i];
-    }
-  }
-
-  return max;
-}
-
-
-__kernel void test(//__global memory_cell *mem)//
-                   //__global int *pcs,
-                   //__global int *c_proc,
-                   //__global int *n_proc,
-                   //__global int *duration,
-                   //__global int *survivals,
-                   //__global int *selected,
-                   __global int *test)
+__kernel void test(__global int *test,
+                   __global int *starts)
 {
     // Get the work unit ID
     int gid = get_global_id(0);
     mwc64x_state_t rng;
     MWC64X_SeedStreams(&rng, 2, 4);
+    // Simulator vars
+    memory_cell population[POPULATION_SIZE][MAX_PROGRAM_LENGTH];
+    memory_cell current_programs[N_PROGRAMS][MAX_PROGRAM_LENGTH];
+    memory_cell memory[MEMORY_SIZE];
+    int selected[N_PROGRAMS];
+    int program_counters[N_PROGRAMS][MAX_PROCESSES];
+    int curr_process[N_PROGRAMS];
+    int n_processes[N_PROGRAMS];
+    int tournament_lengths[N_TOURNAMENTS];
+    int survivals[POPULATION_SIZE];
+
     int rand = MWC64X_NextUint(&rng) % 100;
-    //test[gid] = 5;
-    //memory_cell tMem[MEMORY_SIZE];
-    //memcpy(tMem, &mem[gid], sizeof(tMem));
-    //run_cw(&mem[gid], pcs[gid], c_proc[gid], n_proc[gid], duration[gid]);
-    //record_survivals(survivals[gid], n_proc[gid], selected[gid]);
+
+    select_programs(population, current_programs, selected, rng);
+    load_cw(memory, program_counters, curr_process, n_processes, &starts[gid],
+            current_programs);
+    run_cw(memory, program_counters, curr_process, n_processes,
+           tournament_lengths[gid]);
+    record_survivals(survivals, n_processes, selected);
     test[gid] = rand;
 }
 
