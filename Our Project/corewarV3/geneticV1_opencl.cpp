@@ -204,7 +204,7 @@ int main()
             //run_cw(memory,program_counters,curr_process,n_processes,tournament_lengths[i]);
             //record_survivals(survivals,n_processes,selected);
         }
-        if(!CreateMemObjects(context, memObjects, gpu_mem, gpu_pcs, gpu_c_proc,
+        if(!CreateMemObjects(context, memObjects, population, gpu_pcs, gpu_c_proc,
                              gpu_n_proc, gpu_tournament_lengths, gpu_survivals,
                              gpu_selected, test, gpu_starts))
         {
@@ -214,7 +214,7 @@ int main()
 
         errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[7]);
         errNum = clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[8]);
-        //errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[1]);
+        errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[0]);
         //errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[2]);
         //errNum |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &memObjects[3]);
         //errNum |= clSetKernelArg(kernel, 4, sizeof(cl_mem), &memObjects[4]);
@@ -353,6 +353,15 @@ int main()
     //    cout << "Generation " << i << " max run time = " << max_tournament_length[i] << endl;
     //  }
 
+    for(unsigned int i = 0; i<sizeof(*memObjects); i+=sizeof(cl_mem))
+    {
+        int index = i/sizeof(cl_mem);
+        clReleaseMemObject(memObjects[index]);
+    }
+    clReleaseKernel(kernel);
+    clReleaseProgram(program);
+    clReleaseContext(context);
+    clReleaseCommandQueue(commandQueue);
 
     return 0;
 }
@@ -483,7 +492,7 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
 
 bool CreateMemObjects(cl_context context,
                       cl_mem memObjects[8],
-                      memory_cell mem[N_TOURNAMENTS][MEMORY_SIZE],
+                      memory_cell pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH],
                       int pcs[N_TOURNAMENTS][N_PROGRAMS][MAX_PROCESSES],
                       int c_proc[N_TOURNAMENTS][N_PROGRAMS],
                       int n_proc[N_TOURNAMENTS][N_PROGRAMS],
@@ -495,10 +504,10 @@ bool CreateMemObjects(cl_context context,
 {
     cl_int errNo;
     // Example buffer objects
-    /*
     memObjects[0] = clCreateBuffer(context,
-           CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(mem), mem, &errNo);
+           CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(*pop), pop, &errNo);
     cout << "Cl Error: " << errNo << endl;
+    /*
     memObjects[1] = clCreateBuffer(context,
            CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(pcs), pcs, &errNo);
     cout << "Cl Error: " << errNo << endl;

@@ -344,14 +344,15 @@ void record_survivals(int survivals[POPULATION_SIZE],
 //                   __global memory_cell *pop,
 //                   __global int *survivors)
 __kernel void test(__global int *test,
-                   __global int *starts)
+                   __global int *starts,
+                   __global memory_cell *population)
 {
     // Get the work unit ID
     int gid = get_global_id(0);
     mwc64x_state_t rng;
     MWC64X_SeedStreams(&rng, 2, 4);
     // Simulator vars
-    memory_cell population[POPULATION_SIZE][MAX_PROGRAM_LENGTH];
+    //memory_cell population[POPULATION_SIZE][MAX_PROGRAM_LENGTH];
     memory_cell current_programs[N_PROGRAMS][MAX_PROGRAM_LENGTH];
     memory_cell memory[MEMORY_SIZE];
     int selected[N_PROGRAMS];
@@ -369,7 +370,7 @@ __kernel void test(__global int *test,
     run_cw(memory, program_counters, curr_process, n_processes,
            tournament_lengths[gid]);
     record_survivals(survivals, n_processes, selected);
-    //test[gid] = rand;
+    test[gid] = rand;
     // At the end dump the memory into the global vars
     //tourn_lengths = &tournament_lengths;
     //pop = &population;
