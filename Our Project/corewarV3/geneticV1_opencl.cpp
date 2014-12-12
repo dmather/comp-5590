@@ -108,7 +108,7 @@ int main()
     size_t workItems[3];
     size_t paramSize = -1;
     // This needs to be adjusted
-    size_t globalWorkSize[1] = { 1 };
+    size_t globalWorkSize[1] = { N_TOURNAMENTS };
     size_t localWorkSize[1] = { 1 };
 
     errNum = clGetDeviceInfo(device, CL_DEVICE_NAME,
@@ -158,7 +158,7 @@ int main()
     //                                0, NULL, NULL);
     //int output[N_TOURNAMENTS];
 
-    //clEnqueueReadBuffer(commandQueue, memObjects[0], CL_TRUE, 0,
+    //clEnqueueneadBuffer(commandQueue, memObjects[0], CL_TRUE, 0,
     //                sizeof(output), output, 0, NULL, NULL);
     //if(errNum != CL_SUCCESS)
     //{
@@ -202,14 +202,14 @@ int main()
             return 1;
         }
 
-        errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[0]);
-        errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[1]);
-        errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[2]);
-        errNum |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &memObjects[3]);
-        errNum |= clSetKernelArg(kernel, 4, sizeof(cl_mem), &memObjects[4]);
-        errNum |= clSetKernelArg(kernel, 5, sizeof(cl_mem), &memObjects[5]);
-        errNum |= clSetKernelArg(kernel, 6, sizeof(cl_mem), &memObjects[6]);
-        errNum |= clSetKernelArg(kernel, 7, sizeof(cl_mem), &memObjects[7]);
+        errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[7]);
+        //errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[1]);
+        //errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[2]);
+        //errNum |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &memObjects[3]);
+        //errNum |= clSetKernelArg(kernel, 4, sizeof(cl_mem), &memObjects[4]);
+        //errNum |= clSetKernelArg(kernel, 5, sizeof(cl_mem), &memObjects[5]);
+        //errNum |= clSetKernelArg(kernel, 6, sizeof(cl_mem), &memObjects[6]);
+        //errNum |= clSetKernelArg(kernel, 7, sizeof(cl_mem), &memObjects[7]);
         if(errNum != CL_SUCCESS)
         {
             printf("Error setting kernel arguments. %d\n", errNum);
@@ -228,7 +228,14 @@ int main()
             printf("Error queueing the kernel for execution. %d\n", errNum);
         }
 
+        errNum = clFinish(commandQueue);
+        if(errNum != CL_SUCCESS)
+        {
+            printf("Error with clFinish command. %d\n", errNum);
+        }
+
         // Read back the buffers
+        /*
         errNum = clEnqueueReadBuffer(commandQueue, memObjects[0], CL_TRUE, 0,
                 sizeof(gpu_mem), gpu_mem, 0, NULL, NULL);
         cout << "Read Buffer Error: " << errNum << endl;
@@ -251,8 +258,9 @@ int main()
         errNum = clEnqueueReadBuffer(commandQueue, memObjects[6], CL_TRUE, 0,
                 sizeof(gpu_selected), gpu_selected, 0, NULL, NULL);
         cout << "Read Buffer Error: " << errNum << endl;
+        */
         errNum = clEnqueueReadBuffer(commandQueue, memObjects[7], CL_TRUE, 0,
-                sizeof(test), test, 0, NULL, NULL);
+                sizeof(int) * N_TOURNAMENTS, test, 0, NULL, NULL);
         cout << "Read Buffer Error: " << errNum << endl;
 
         //tournament_lengths = &gpu_tournament_lengths;
@@ -261,7 +269,7 @@ int main()
 
         for(i=0; i<N_TOURNAMENTS;i++)
         {
-            cout << gpu_tournament_lengths[i] << endl;
+            cout << test[i] << endl;
         }
         //cout << generation << endl;
 
@@ -467,6 +475,7 @@ bool CreateMemObjects(cl_context context,
 {
     cl_int errNo;
     // Example buffer objects
+    /*
     memObjects[0] = clCreateBuffer(context,
            CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(mem), mem, &errNo);
     cout << "Cl Error: " << errNo << endl;
@@ -494,9 +503,10 @@ bool CreateMemObjects(cl_context context,
                                    CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
                                    sizeof(selected), selected, &errNo);
     cout << "Cl Error: " << errNo << endl;
+    */
     memObjects[7] = clCreateBuffer(context,
-                                   CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-                                   sizeof(test), test, &errNo);
+                                   CL_MEM_WRITE_ONLY,
+                                   sizeof(int) * N_TOURNAMENTS, NULL, &errNo);
     cout << "Cl Error: " << errNo << endl;
     /*
     memObjects[1] = clCreateBuffer(context,

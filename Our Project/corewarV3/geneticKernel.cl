@@ -1,4 +1,7 @@
 #include "sharedredcode.h"
+// This is an PRNG library from:
+// http://cas.ee.ic.ac.uk/people/dt10/research/rngs-gpu-mwc64x.html#overview
+#include "cl/mwc64x.cl"
 
 // Count how many have processes still running
 int survivor_count(int n_proc[MAX_PROCESSES]){
@@ -272,22 +275,26 @@ int max_t_length(int t_lengths[N_TOURNAMENTS])
 }
 
 
-__kernel void test(__global memory_cell *mem,
-                   __global int *pcs,
-                   __global int *c_proc,
-                   __global int *n_proc,
-                   __global int *duration,
-                   __global int *survivals,
-                   __global int *selected,
+__kernel void test(//__global memory_cell *mem)//
+                   //__global int *pcs,
+                   //__global int *c_proc,
+                   //__global int *n_proc,
+                   //__global int *duration,
+                   //__global int *survivals,
+                   //__global int *selected,
                    __global int *test)
 {
     // Get the work unit ID
     int gid = get_global_id(0);
-    test[gid] = 5;
+    mwc64x_state_t rng;
+    MWC64X_SeedStreams(&rng, 2, 4);
+    int rand = MWC64X_NextUint(&rng) % 100;
+    //test[gid] = 5;
     //memory_cell tMem[MEMORY_SIZE];
     //memcpy(tMem, &mem[gid], sizeof(tMem));
-    run_cw(&mem[gid], pcs[gid], c_proc[gid], n_proc[gid], duration[gid]);
-    record_survivals(survivals[gid], n_proc[gid], selected[gid]);
+    //run_cw(&mem[gid], pcs[gid], c_proc[gid], n_proc[gid], duration[gid]);
+    //record_survivals(survivals[gid], n_proc[gid], selected[gid]);
+    test[gid] = rand;
 }
 
 /*
