@@ -71,12 +71,6 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
 bool CreateMemObjects(cl_context context,
                       cl_mem memObjects[8],
 memory_cell pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH],
-int pcs[N_TOURNAMENTS][N_PROGRAMS][MAX_PROCESSES],
-int c_proc[N_TOURNAMENTS][N_PROGRAMS],
-int n_proc[N_TOURNAMENTS][N_PROGRAMS],
-int tournament_lengths[N_TOURNAMENTS],
-int survivals[N_TOURNAMENTS][POPULATION_SIZE],
-int selected[N_TOURNAMENTS][N_PROGRAMS],
 int test[N_TOURNAMENTS],
 int starts[N_TOURNAMENTS][N_PROGRAMS]);
 

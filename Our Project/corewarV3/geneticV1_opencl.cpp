@@ -44,6 +44,7 @@ istream& operator>>(istream& ins, memory_cell& cell);
 
 int main()
 {
+	
     memory_cell memory[MEMORY_SIZE];
     int program_counters[N_PROGRAMS][MAX_PROCESSES];
     int n_processes[N_PROGRAMS];
@@ -53,7 +54,7 @@ int main()
     memory_cell children[POPULATION_SIZE][MAX_PROGRAM_LENGTH];
     int survivals[POPULATION_SIZE];
     int selected[N_PROGRAMS];
-
+	
     memory_cell current_programs[N_PROGRAMS][MAX_PROGRAM_LENGTH];
     int starts[N_PROGRAMS];
 
@@ -62,15 +63,15 @@ int main()
 
     int tournament_lengths[N_TOURNAMENTS];
     int max_tournament_length[MAX_GENERATIONS];
-
+	
     // Vars needed for GPU kernel
-    memory_cell gpu_mem[N_TOURNAMENTS][MEMORY_SIZE];
-    int gpu_pcs[N_TOURNAMENTS][N_PROGRAMS][MAX_PROCESSES];
-    int gpu_c_proc[N_TOURNAMENTS][N_PROGRAMS];
-    int gpu_n_proc[N_TOURNAMENTS][N_PROGRAMS];
-    int gpu_tournament_lengths[N_TOURNAMENTS];
-    int gpu_survivals[N_TOURNAMENTS][POPULATION_SIZE];
-    int gpu_selected[N_TOURNAMENTS][N_PROGRAMS];
+    //memory_cell gpu_mem[N_TOURNAMENTS][MEMORY_SIZE];
+    //int gpu_pcs[N_TOURNAMENTS][N_PROGRAMS][MAX_PROCESSES];
+    //int gpu_c_proc[N_TOURNAMENTS][N_PROGRAMS];
+    //int gpu_n_proc[N_TOURNAMENTS][N_PROGRAMS];
+    //int gpu_tournament_lengths[N_TOURNAMENTS];
+    //int gpu_survivals[N_TOURNAMENTS][POPULATION_SIZE];
+    //int gpu_selected[N_TOURNAMENTS][N_PROGRAMS];
     int gpu_starts[N_TOURNAMENTS][N_PROGRAMS];
 
     // OpenCL variables
@@ -82,7 +83,7 @@ int main()
     cl_mem memObjects[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     cl_int errNum;
     int test[N_TOURNAMENTS];
-
+	
     srand(1234); // set a specific seed for replicability in debugging
 
     // generate initial population
@@ -108,7 +109,7 @@ int main()
     char name[2048] = "";
     size_t workItems[3];
     size_t paramSize = -1;
-    ulong localMemSize = -1;
+    unsigned long localMemSize = -1;
     // This needs to be adjusted
     size_t globalWorkSize[1] = { N_TOURNAMENTS };
     size_t localWorkSize[1] = { 1 };
@@ -118,22 +119,29 @@ int main()
                              &name, &paramSize);
     printf("Requested %d bytes\n", paramSize);
     printf("Device name: %s.\n", name);
+	if(errNum != CL_SUCCESS)
+    {
+        printf("Error getting device info: %d\n", errNum);
+    }
     errNum = clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES,
                              sizeof(workItems),
                              &workItems, &paramSize);
     printf("Requested %d bytes\n", paramSize);
     printf("Max work items: %lu\n", workItems[0]);
+	if(errNum != CL_SUCCESS)
+    {
+        printf("Error getting device info: %d\n", errNum);
+    }
     errNum = clGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE,
-                             sizeof(localMemSize),
+                             sizeof(unsigned long),
                              &localMemSize, &paramSize);
     printf("Requested %d bytes\n", paramSize);
     printf("Local Memory size: %lu\n", localMemSize);
-
     if(errNum != CL_SUCCESS)
     {
         printf("Error getting device info: %d\n", errNum);
     }
-
+	
     program = CreateProgram(context, device, "geneticKernel.cl");
     if(program == NULL)
     {
@@ -145,39 +153,6 @@ int main()
     {
         printf("Failed to create kernel.\n");
     }
-
-    /*
-    if(!CreateMemObjects(context, memObjects, test))
-    {
-        return 1;
-    }
-
-    errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[0]);
-
-    if(errNum != CL_SUCCESS)
-    {
-        printf("Error setting kernel arguments. %d\n", errNum);
-        return 1;
-    }
-    */
-
-    //errNum = clEnqueueNDRangeKernel(commandQueue, kernel, 1, NULL,
-    //                                globalWorkSize, localWorkSize,
-    //                                0, NULL, NULL);
-    //int output[N_TOURNAMENTS];
-
-    //clEnqueueneadBuffer(commandQueue, memObjects[0], CL_TRUE, 0,
-    //                sizeof(output), output, 0, NULL, NULL);
-    //if(errNum != CL_SUCCESS)
-    //{
-    //    printf("Error queueing kernel for execution.\n");
-    //    return 1;
-    //}
-
-    //for(int i = 0; i<N_TOURNAMENTS; i++)
-    //{
-    //    printf("Buffer value: %d\n", output[i]);
-    //}
 
     // End OpenCL host code
 
@@ -193,27 +168,17 @@ int main()
             //select_programs(population,current_programs,selected);
             //load_cw(memory,program_counters,curr_process,
             //        n_processes,starts,current_programs);
-            // Prime memory buffers to pass to GPU
-            //memcpy(gpu_mem[i], memory, sizeof(memory));
-            //memcpy(gpu_pcs[i], program_counters, sizeof(program_counters));
-            //memcpy(gpu_c_proc[i], curr_process, sizeof(current_programs));
-            //memcpy(gpu_n_proc[i], n_processes, sizeof(n_processes));
-            //gpu_tournament_lengths
-            //memcpy(gpu_survivals[i], survivals, sizeof(survivals));
-            //memcpy(gpu_selected[i], selected, sizeof(selected));
             //run_cw(memory,program_counters,curr_process,n_processes,tournament_lengths[i]);
             //record_survivals(survivals,n_processes,selected);
         }
-        if(!CreateMemObjects(context, memObjects, population, gpu_pcs, gpu_c_proc,
-                             gpu_n_proc, gpu_tournament_lengths, gpu_survivals,
-                             gpu_selected, test, gpu_starts))
+        if(!CreateMemObjects(context, memObjects, population, test, gpu_starts))
         {
             printf("Failed to create mem objects\n");
             return 1;
         }
 
         errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[7]);
-        errNum = clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[8]);
+        errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[8]);
         errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[0]);
         //errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[2]);
         //errNum |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &memObjects[3]);
@@ -246,7 +211,7 @@ int main()
         }
 
         // Read back the buffers
-        /*
+		/*
         errNum = clEnqueueReadBuffer(commandQueue, memObjects[0], CL_TRUE, 0,
                 sizeof(gpu_mem), gpu_mem, 0, NULL, NULL);
         cout << "Read Buffer Error: " << errNum << endl;
@@ -269,6 +234,7 @@ int main()
         errNum = clEnqueueReadBuffer(commandQueue, memObjects[6], CL_TRUE, 0,
                 sizeof(gpu_selected), gpu_selected, 0, NULL, NULL);
         cout << "Read Buffer Error: " << errNum << endl;
+        //
         */
         errNum = clEnqueueReadBuffer(commandQueue, memObjects[7], CL_TRUE, 0,
                 sizeof(int) * N_TOURNAMENTS, test, 0, NULL, NULL);
@@ -277,10 +243,9 @@ int main()
                 sizeof(int) * (N_TOURNAMENTS * N_PROGRAMS), starts, 0, NULL,
                 NULL);
         cout << "Read Buffer Error: " << errNum << endl;
-
         //tournament_lengths = &gpu_tournament_lengths;
-        memcpy(tournament_lengths, gpu_tournament_lengths,
-               sizeof(gpu_tournament_lengths));
+        //memcpy(tournament_lengths, gpu_tournament_lengths,
+        //       sizeof(gpu_tournament_lengths));
 
 
         for(i=0; i<N_TOURNAMENTS;i++)
@@ -335,13 +300,13 @@ int main()
     }
     cout << "After: " << endl;
     show_part(population);
-    cout << "Sizeof gpu_mem: " << sizeof(gpu_mem)/1024 << "KiB" << endl;
-    cout << "Sizeof gpu_c_proc: " << sizeof(gpu_c_proc) << "Bytes" << endl;
-    cout << "Sizeof gpu_n_proc: " << sizeof(gpu_n_proc) << "Bytes" << endl;
-    cout << "Sizeof gpu_pcs: " << sizeof(gpu_pcs)/1024 << "KiB" << endl;
-    cout << "Sizeof gpu_selected: " << sizeof(gpu_selected) << "Bytes" << endl;
-    cout << "Sizeof gpu_survivals: " << sizeof(gpu_survivals)/1024 << "KiB" << endl;
-    cout << "Sizeof gpu_tournament_lengths: " << sizeof(gpu_tournament_lengths) << "Bytes" << endl;
+    //cout << "Sizeof gpu_mem: " << sizeof(gpu_mem)/1024 << "KiB" << endl;
+    //cout << "Sizeof gpu_c_proc: " << sizeof(gpu_c_proc) << "Bytes" << endl;
+    //cout << "Sizeof gpu_n_proc: " << sizeof(gpu_n_proc) << "Bytes" << endl;
+    //cout << "Sizeof gpu_pcs: " << sizeof(gpu_pcs)/1024 << "KiB" << endl;
+    //cout << "Sizeof gpu_selected: " << sizeof(gpu_selected) << "Bytes" << endl;
+    //cout << "Sizeof gpu_survivals: " << sizeof(gpu_survivals)/1024 << "KiB" << endl;
+    //cout << "Sizeof gpu_tournament_lengths: " << sizeof(gpu_tournament_lengths) << "Bytes" << endl;
 
     //  for(i = 0; i < 10; i++){
     //    cout << "Generation " << i << " max run time = " << max_tournament_length[i] << endl;
@@ -493,19 +458,15 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
 bool CreateMemObjects(cl_context context,
                       cl_mem memObjects[8],
                       memory_cell pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH],
-                      int pcs[N_TOURNAMENTS][N_PROGRAMS][MAX_PROCESSES],
-                      int c_proc[N_TOURNAMENTS][N_PROGRAMS],
-                      int n_proc[N_TOURNAMENTS][N_PROGRAMS],
-                      int tournament_lengths[N_TOURNAMENTS],
-                      int survivals[N_TOURNAMENTS][POPULATION_SIZE],
-                      int selected[N_TOURNAMENTS][N_PROGRAMS],
                       int test[N_TOURNAMENTS],
                       int starts[N_TOURNAMENTS][N_PROGRAMS])
 {
     cl_int errNo;
     // Example buffer objects
     memObjects[0] = clCreateBuffer(context,
-           CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(*pop), pop, &errNo);
+           CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+		   sizeof(memory_cell) * (POPULATION_SIZE * MAX_PROGRAM_LENGTH), 
+		   pop, &errNo);
     cout << "Cl Error: " << errNo << endl;
     /*
     memObjects[1] = clCreateBuffer(context,
@@ -542,34 +503,7 @@ bool CreateMemObjects(cl_context context,
                                    sizeof(int) * (N_TOURNAMENTS * N_PROGRAMS),
                                    starts, &errNo);
     cout << "Cl Error: " << errNo << endl;
-    /*
-    memObjects[1] = clCreateBuffer(context,
-           CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-           sizeof(int) * (N_PROGRAMS * MAX_PROCESSES),
-           pcs, &errNo);
-    cout << errNo << endl;
-    memObjects[2] = clCreateBuffer(context,
-          CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-          sizeof(int) * N_PROGRAMS, c_proc, &errNo);
-    cout << errNo << endl;
-    memObjects[3] = clCreateBuffer(context,
-          CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-          sizeof(int) * N_PROGRAMS, n_proc, &errNo);
-    cout << errNo << endl;
-    memObjects[4] = clCreateBuffer(context,
-          CL_MEM_WRITE_ONLY, sizeof(int)*10, NULL,
-          &errNo);
-    cout << errNo << endl;
-    */
-    /*
-    if(memObjects[0] == NULL || memObjects[1] == NULL || memObjects[2] == NULL ||
-    memObjects[3] == NULL || memObjects[4] == NULL)
-    {
-    printf("Error creating memory objects. %f %f %f %f\n", p_memCells,
-    pcs, p_c_proc, p_n_proc);
-    return false;
-    }
-    */
+
     return true;
 }
 
@@ -984,6 +918,7 @@ ostream& operator<<(ostream& outs, const memory_cell& cell)
     return outs;
 }
 
+/*
 istream& operator>>(istream& ins, memory_cell& cell)
 {
     char instruct[4];
@@ -1030,3 +965,4 @@ istream& operator>>(istream& ins, memory_cell& cell)
 
     return ins;
 }
+*/
