@@ -64,15 +64,15 @@ void select_programs(memory_cell pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH],
   return;
 }
 
-void load_cw(__private memory_cell mem[MEMORY_SIZE],
-             __private int pcs[N_PROGRAMS][MAX_PROCESSES],
-             __private int c_proc[N_PROGRAMS],
-             __private int n_proc[N_PROGRAMS],
-             __global int starting_locations[N_PROGRAMS],
-             __private memory_cell program[N_PROGRAMS][MAX_PROGRAM_LENGTH])
+void load_cw(memory_cell mem[MEMORY_SIZE],
+             int pcs[N_PROGRAMS][MAX_PROCESSES],
+             int c_proc[N_PROGRAMS],
+             int n_proc[N_PROGRAMS],
+             int starting_locations[N_PROGRAMS],
+             memory_cell program[N_PROGRAMS][MAX_PROGRAM_LENGTH])
 {
-  __local int i,j;
-  __local int s;
+  int i,j;
+  int s;
 
   for(i=0;i<N_PROGRAMS;i++){
     c_proc[i]=0;
@@ -89,14 +89,14 @@ void load_cw(__private memory_cell mem[MEMORY_SIZE],
 
 // I think this works now
 // Survivors have a non-zero entry in n_proc
-void run_cw(__private memory_cell *mem,
-            __private int *pcs,
-            __private int *c_proc,
-            __private int *n_proc,
+void run_cw(memory_cell *mem,
+            int *pcs,
+            int *c_proc,
+            int *n_proc,
             int duration)
 {
-  __private int time_step;
-  __private int i, j;
+  int time_step;
+  int i, j;
 
   time_step = 1;
   while(time_step <= MAX_STEPS && survivor_count(n_proc) > 2){
@@ -113,18 +113,18 @@ void run_cw(__private memory_cell *mem,
 }
 
 // I think this works now
-void do_one_step(__private memory_cell *mem,
-                 __private int *pcs,
-				 __private int *c_proc,
-                 __private int *n_proc,
-				 __private int i)
+void do_one_step(memory_cell *mem,
+                 int *pcs,
+				 int *c_proc,
+                 int *n_proc,
+				 int i)
 {
-  __local int prog_counter;
-  __local int pointer_value;
-  __local int index_a;
-  __local int value_a;
-  __local int index_b;
-  __local int value_b;
+  int prog_counter;
+  int pointer_value;
+  int index_a;
+  int value_a;
+  int index_b;
+  int value_b;
 
   //proc_counter = pcs[i][c_proc[i]];
   // We want to use pointers so we're using pointer arithmetic here
@@ -316,7 +316,7 @@ __kernel void test(__global int *test,
     int curr_process[N_PROGRAMS];
     int n_processes[N_PROGRAMS];
     int tournament_lengths[N_TOURNAMENTS];
-    //int survivals[POPULATION_SIZE];
+    int survivals[POPULATION_SIZE];
 
     int rand = MWC64X_NextUint(&rng) % 100;
 
@@ -325,12 +325,8 @@ __kernel void test(__global int *test,
             current_programs);
     run_cw(&memory, &program_counters, &curr_process, &n_processes,
            tournament_lengths[gid]);
-    //record_survivals(survivals, n_processes, selected);
+    record_survivals(survivals, n_processes, selected);
     test[gid] = rand;
-    // At the end dump the memory into the global vars
-    //tourn_lengths = &tournament_lengths;
-    //pop = &population;
-    //survivors = &survivals;
 }
 
 /*
