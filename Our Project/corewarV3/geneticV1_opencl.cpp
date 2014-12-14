@@ -61,17 +61,10 @@ int main()
 	int generation;
 	int i,j,k;
 
-	//int tournament_lengths[N_TOURNAMENTS];
-	//int max_tournament_length[MAX_GENERATIONS];
+	int tournament_lengths[N_TOURNAMENTS];
+	int max_tournament_length[MAX_GENERATIONS];
 
 	// Vars needed for GPU kernel
-	//memory_cell gpu_mem[N_TOURNAMENTS][MEMORY_SIZE];
-	//int gpu_pcs[N_TOURNAMENTS][N_PROGRAMS][MAX_PROCESSES];
-	//int gpu_c_proc[N_TOURNAMENTS][N_PROGRAMS];
-	//int gpu_n_proc[N_TOURNAMENTS][N_PROGRAMS];
-	//int gpu_tournament_lengths[N_TOURNAMENTS];
-	//int gpu_survivals[N_TOURNAMENTS][POPULATION_SIZE];
-	//int gpu_selected[N_TOURNAMENTS][N_PROGRAMS];
 	int gpu_starts[N_TOURNAMENTS][N_PROGRAMS];
 
 	// OpenCL variables
@@ -132,61 +125,69 @@ int main()
 	{
 		printf("Error getting device info: %d\n", errNum);
 	}
-	/*
-	errNum = clGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE,
-	sizeof(unsigned long),
-	&localMemSize, &paramSize);
-	printf("Requested %d bytes\n", paramSize);
-	printf("Local Memory size: %lu\n", localMemSize);
-	if(errNum != CL_SUCCESS)
-	{
-	printf("Error getting device info: %d\n", errNum);
-	}
-	*/
+	
 	program = CreateProgram(context, device, "geneticKernel.cl");
 	if(program == NULL)
 	{
 		return 1;
 	}
-
-	kernel = clCreateKernel(program, "test", NULL);
-	if(kernel == NULL)
-	{
-		printf("Failed to create kernel.\n");
-	}
-
 	// End OpenCL host code
-
 
 	for(generation = 0; generation < MAX_GENERATIONS; generation++){
 		// run tournaments
 		clear_survivals(survivals);
 		for(i = 0; i < N_TOURNAMENTS; i++){
-			clear_cw(memory,program_counters,curr_process,n_processes);
 			generate_starts(gpu_starts[i]);
-			// Copy the starting positions into gpu_starts array.
-			//memcpy(gpu_starts[i], starts, sizeof(int) * N_PROGRAMS);
 			//select_programs(population,current_programs,selected);
 			//load_cw(memory,program_counters,curr_process,
 			//        n_processes,starts,current_programs);
 			//run_cw(memory,program_counters,curr_process,n_processes,tournament_lengths[i]);
 			//record_survivals(survivals,n_processes,selected);
 		}
-		if(!CreateMemObjects(context, memObjects, population, test, gpu_starts))
+
+		kernel = clCreateKernel(program, "test", NULL);
+		if(kernel == NULL)
 		{
-			printf("Failed to create mem objects\n");
-			return 1;
+			printf("Failed to create kernel.\n");
 		}
+
+		//if(!CreateMemObjects(context, memObjects, population, test, gpu_starts))
+		//{
+		//	printf("Failed to create mem objects\n");
+		//	return 1;
+		//}
+
+		cl_int errNo;
+		// Example buffer objects
+		memObjects[0] = clCreateBuffer(context,
+				CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+				sizeof(memory_cell) * (POPULATION_SIZE * MAX_PROGRAM_LENGTH), 
+				population, &errNo);
+		cout << "Cl Error: " << errNo << endl;
+		memObjects[7] = clCreateBuffer(context,
+				CL_MEM_WRITE_ONLY,
+				sizeof(int) * N_TOURNAMENTS, NULL, &errNo);
+		cout << "Cl Error: " << errNo << endl;
+		memObjects[8] = clCreateBuffer(context,
+				CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+				sizeof(int) * (N_TOURNAMENTS * N_PROGRAMS),
+				gpu_starts, &errNo);
+		cout << "Cl Error: " << errNo << endl;
+		memObjects[1] = clCreateBuffer(context,
+			CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+			sizeof(int) * POPULATION_SIZE, survivals, &errNo);
+		cout << "Cl Error: " << errNo << endl;
+		memObjects[2] = clCreateBuffer(context,
+			CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+			sizeof(int) * N_TOURNAMENTS, tournament_lengths, &errNo);
+		cout << "Cl Error: " << errNo << endl;
 
 		errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[7]);
 		errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[8]);
 		errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[0]);
-		//errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[2]);
-		//errNum |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &memObjects[3]);
-		//errNum |= clSetKernelArg(kernel, 4, sizeof(cl_mem), &memObjects[4]);
-		//errNum |= clSetKernelArg(kernel, 5, sizeof(cl_mem), &memObjects[5]);
-		//errNum |= clSetKernelArg(kernel, 6, sizeof(cl_mem), &memObjects[6]);
-		//errNum |= clSetKernelArg(kernel, 7, sizeof(cl_mem), &memObjects[7]);
+		errNum |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &memObjects[1]);
+		errNum |= clSetKernelArg(kernel, 4, sizeof(cl_mem), &memObjects[2]);
+		
 		if(errNum != CL_SUCCESS)
 		{
 			printf("Error setting kernel arguments. %d\n", errNum);
@@ -205,60 +206,38 @@ int main()
 			printf("Error queueing the kernel for execution. %d\n", errNum);
 		}
 
-		errNum = clFinish(commandQueue);
-		if(errNum != CL_SUCCESS)
+		clFinish(commandQueue);
+
+		for(int i = 0; i < N_TOURNAMENTS; i++)
 		{
-			printf("Error with clFinish command. %d\n", errNum);
+			test[i] = -1;
 		}
 
-		// Read back the buffers
-		/*
-		errNum = clEnqueueReadBuffer(commandQueue, memObjects[0], CL_TRUE, 0,
-		sizeof(gpu_mem), gpu_mem, 0, NULL, NULL);
-		cout << "Read Buffer Error: " << errNum << endl;
-		errNum = clEnqueueReadBuffer(commandQueue, memObjects[1], CL_TRUE, 0,
-		sizeof(gpu_pcs), gpu_pcs, 0, NULL, NULL);
-		cout << "Read Buffer Error: " << errNum << endl;
-		errNum = clEnqueueReadBuffer(commandQueue, memObjects[2], CL_TRUE, 0,
-		sizeof(gpu_c_proc), gpu_c_proc, 0, NULL, NULL);
-		cout << "Read Buffer Error: " << errNum << endl;
-		errNum = clEnqueueReadBuffer(commandQueue, memObjects[3], CL_TRUE, 0,
-		sizeof(gpu_n_proc), gpu_n_proc, 0, NULL, NULL);
-		cout << "Read Buffer Error: " << errNum << endl;
-		errNum = clEnqueueReadBuffer(commandQueue, memObjects[4], CL_TRUE, 0,
-		sizeof(gpu_tournament_lengths), gpu_tournament_lengths, 0,
-		NULL, NULL);
-		cout << "Read Buffer Error: " << errNum << endl;
-		errNum = clEnqueueReadBuffer(commandQueue, memObjects[5], CL_TRUE, 0,
-		sizeof(gpu_survivals), gpu_survivals, 0, NULL, NULL);
-		cout << "Read Buffer Error: " << errNum << endl;
-		errNum = clEnqueueReadBuffer(commandQueue, memObjects[6], CL_TRUE, 0,
-		sizeof(gpu_selected), gpu_selected, 0, NULL, NULL);
-		cout << "Read Buffer Error: " << errNum << endl;
-		//
-		*/
 		errNum = clEnqueueReadBuffer(commandQueue, memObjects[7], CL_TRUE, 0,
-			sizeof(*test), test, 0, NULL, NULL);
+			sizeof(int) * N_TOURNAMENTS, test, 0, NULL, NULL);
 		cout << "Read Buffer Error: " << errNum << endl;
 		errNum = clEnqueueReadBuffer(commandQueue, memObjects[8], CL_TRUE, 0,
 			sizeof(*gpu_starts), starts, 0, NULL,
 			NULL);
 		cout << "Read Buffer Error: " << errNum << endl;
-		//tournament_lengths = &gpu_tournament_lengths;
-		//memcpy(tournament_lengths, gpu_tournament_lengths,
-		//       sizeof(gpu_tournament_lengths));
+		errNum = clEnqueueReadBuffer(commandQueue, memObjects[1], CL_TRUE, 0,
+			sizeof(int) * POPULATION_SIZE, survivals, 0, NULL, NULL);
+		cout << "Read Buffer Error: " << errNum << endl;
+		errNum = clEnqueueReadBuffer(commandQueue, memObjects[2], CL_TRUE, 0,
+			sizeof(int) * N_TOURNAMENTS, tournament_lengths, 0, NULL,
+			NULL);
+		cout << "Read Buffer Error: " << errNum << endl;
 
-
-		for(i=0; i<N_TOURNAMENTS;i++)
+		for(int i = 0; i < N_TOURNAMENTS; i++)
 		{
 			cout << "Random Number: " << test[i] << endl;
-			cout << "Program starts: " << gpu_starts[i][1] << endl;
+			cout << "Survivals: " << survivals[i] << endl;
 		}
 
-		cout << "Iteration: " << generation << endl;
-		//cout << generation << endl;
+		cout << "Generation: " << generation << endl;
 
-		//max_tournament_length[generation] = max_t_length(tournament_lengths);
+		cout << "Max Tournament Length: " << max_t_length(tournament_lengths) << endl;
+		max_tournament_length[generation] = max_t_length(tournament_lengths);
 
 		// variation here??? are the tournaments doing anything?
 		//    if(generation % 10 == 0){
@@ -271,43 +250,42 @@ int main()
 		// breed victors
 		// the survivals array has a count of how many times each program won
 		// use that to select which programs get to breed
-		/*
 		j = 0;
-		for(i=0;i<POPULATION_SIZE;i++){
-		// find two parents for child
-		while(survivals[j] == 0){
-		j++;
-		j %= POPULATION_SIZE;
-		}
-		k = j + 1;
-		k %= POPULATION_SIZE;
-		while(survivals[k] == 0){
-		k++;
-		k %= POPULATION_SIZE;
-		}
-		breed(population[j],population[k],children[i]);
+		for(i = 0; i < POPULATION_SIZE; i++){
+			// find two parents for child
+			while(survivals[j] == 0){
+				j++;
+				j %= POPULATION_SIZE;
+			}
+			k = j + 1;
+			k %= POPULATION_SIZE;
+			while(survivals[k] == 0){
+				k++;
+				k %= POPULATION_SIZE;
+			}
+			breed(population[j],population[k],children[i]);
 
-		j = k + 1;
-		j %= POPULATION_SIZE;
+			j = k + 1;
+			j %= POPULATION_SIZE;
 		}
 
 		// children becomes next generation
-		for(i=0;i<POPULATION_SIZE;i++){
-		for(j=0;j<MAX_PROGRAM_LENGTH;j++){
-		population[i][j] = children[i][j];
+		for(i = 0; i < POPULATION_SIZE; i++){
+			for(j = 0; j < MAX_PROGRAM_LENGTH; j++){
+				population[i][j] = children[i][j];
+			}
 		}
+		// Release Memory Objects (Maybe to save some kernel memory
+		for(unsigned int i = 0; i<9; i++)
+		{
+			clReleaseMemObject(memObjects[i]);
 		}
-		*/
+		clReleaseKernel(kernel);
+		clFinish(commandQueue);
+		//Sleep(1000);
 	}
 	cout << "After: " << endl;
 	show_part(population);
-	//cout << "Sizeof gpu_mem: " << sizeof(gpu_mem)/1024 << "KiB" << endl;
-	//cout << "Sizeof gpu_c_proc: " << sizeof(gpu_c_proc) << "Bytes" << endl;
-	//cout << "Sizeof gpu_n_proc: " << sizeof(gpu_n_proc) << "Bytes" << endl;
-	//cout << "Sizeof gpu_pcs: " << sizeof(gpu_pcs)/1024 << "KiB" << endl;
-	//cout << "Sizeof gpu_selected: " << sizeof(gpu_selected) << "Bytes" << endl;
-	//cout << "Sizeof gpu_survivals: " << sizeof(gpu_survivals)/1024 << "KiB" << endl;
-	//cout << "Sizeof gpu_tournament_lengths: " << sizeof(gpu_tournament_lengths) << "Bytes" << endl;
 
 	//  for(i = 0; i < 10; i++){
 	//    cout << "Generation " << i << " max run time = " << max_tournament_length[i] << endl;
@@ -319,14 +297,9 @@ int main()
 	//    cout << "Generation " << i << " max run time = " << max_tournament_length[i] << endl;
 	//  }
 
-	clFinish(commandQueue);
+	//clFinish(commandQueue);
 
 	// Hacky cleanup
-	for(unsigned int i = 0; i<9; i++)
-	{
-		clReleaseMemObject(memObjects[i]);
-	}
-	clReleaseKernel(kernel);
 	clReleaseProgram(program);
 	clReleaseContext(context);
 	clReleaseCommandQueue(commandQueue);
@@ -461,7 +434,7 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
 }
 
 bool CreateMemObjects(cl_context context,
-					  cl_mem memObjects[8],
+					  cl_mem memObjects[9],
 					  memory_cell pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH],
 					  int test[N_TOURNAMENTS],
 					  int starts[N_TOURNAMENTS][N_PROGRAMS])
@@ -473,38 +446,12 @@ bool CreateMemObjects(cl_context context,
 		sizeof(*pop), 
 		pop, &errNo);
 	cout << "Cl Error: " << errNo << endl;
-	/*
-	memObjects[1] = clCreateBuffer(context,
-	CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(pcs), pcs, &errNo);
-	cout << "Cl Error: " << errNo << endl;
-	memObjects[2] = clCreateBuffer(context,
-	CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-	sizeof(c_proc), c_proc, NULL);
-	cout << "Cl Error: " << errNo << endl;
-	memObjects[3] = clCreateBuffer(context,
-	CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-	sizeof(n_proc), n_proc, &errNo);
-	cout << "Cl Error: " << errNo << endl;
-	memObjects[4] = clCreateBuffer(context,
-	CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-	sizeof(tournament_lengths),
-	tournament_lengths, &errNo);
-	cout << "Cl Error: " << errNo << endl;
-	memObjects[5] = clCreateBuffer(context,
-	CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-	sizeof(survivals), survivals, &errNo);
-	cout << "Cl Error: " << errNo << endl;
-	memObjects[6] = clCreateBuffer(context,
-	CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-	sizeof(selected), selected, &errNo);
-	cout << "Cl Error: " << errNo << endl;
-	*/
 	memObjects[7] = clCreateBuffer(context,
 		CL_MEM_WRITE_ONLY,
-		sizeof(*test), NULL, &errNo);
+		sizeof(int) * N_TOURNAMENTS, NULL, &errNo);
 	cout << "Cl Error: " << errNo << endl;
 	memObjects[8] = clCreateBuffer(context,
-		CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+		CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
 		sizeof(*starts),
 		starts, &errNo);
 	cout << "Cl Error: " << errNo << endl;
@@ -512,36 +459,6 @@ bool CreateMemObjects(cl_context context,
 	return true;
 }
 
-// empties everything
-void clear_cw(memory_cell mem[MEMORY_SIZE], 
-			  int pcs[N_PROGRAMS][MAX_PROCESSES],
-			  int c_proc[N_PROGRAMS],
-			  int n_proc[N_PROGRAMS])
-{
-	int i, j;
-	memory_cell blank;
-
-	blank.code = DAT;
-	blank.arg_A = 0;
-	blank.arg_B = 0;
-	blank.mode_A = DIR;
-	blank.mode_B = DIR;
-
-	// Clear Memory
-	for(i=0;i<MEMORY_SIZE;i++){
-		mem[i] = blank;
-	}
-
-	for(i=0;i<N_PROGRAMS;i++){
-		c_proc[i] = 0;
-		n_proc[i] = 0;
-		for(j=0;j<MAX_PROCESSES;j++){
-			pcs[i][j] = 0;
-		}
-	}
-
-	return;
-}
 
 void clear_survivals(int survivals[POPULATION_SIZE])
 {
@@ -553,21 +470,6 @@ void clear_survivals(int survivals[POPULATION_SIZE])
 
 	return;
 }
-
-void record_survivals(int survivals[POPULATION_SIZE], 
-					  int n_process[N_PROGRAMS],
-					  int selected[N_PROGRAMS])
-{
-	int i;
-	for(i=0;i<N_PROGRAMS;i++){
-		if(n_process[i] > 0){
-			survivals[selected[i]]++;
-		}
-	}
-
-	return;
-}
-
 
 // generates a program with random instructions
 void generate_program(memory_cell prog[MAX_PROGRAM_LENGTH])
@@ -614,24 +516,6 @@ void generate_starts(int starts[N_PROGRAMS])
 	}
 }
 
-void select_programs(memory_cell pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH],
-					 memory_cell progs[N_PROGRAMS][MAX_PROGRAM_LENGTH],
-					 int selected[N_PROGRAMS])
-{
-	int i,j;
-	int r;
-
-	for(i=0;i<N_PROGRAMS;i++){
-		r = rand() % POPULATION_SIZE;
-		selected[i] = r;
-		for(j=0;j<MAX_PROGRAM_LENGTH;j++){
-			progs[i][j] = pop[r][j];
-		}
-	}
-
-	return;
-}
-
 void breed(memory_cell father[MAX_PROGRAM_LENGTH],
 		   memory_cell mother[MAX_PROGRAM_LENGTH],
 		   memory_cell child[MAX_PROGRAM_LENGTH])
@@ -659,54 +543,6 @@ void breed(memory_cell father[MAX_PROGRAM_LENGTH],
 	return;
 }
 
-void load_cw(memory_cell mem[MEMORY_SIZE],
-			 int pcs[N_PROGRAMS][MAX_PROCESSES],
-			 int c_proc[N_PROGRAMS],
-			 int n_proc[N_PROGRAMS],
-			 int starting_locations[N_PROGRAMS],
-			 memory_cell program[N_PROGRAMS][MAX_PROGRAM_LENGTH])
-{
-	int i,j;
-	int s;
-
-	for(i=0;i<N_PROGRAMS;i++){
-		c_proc[i]=0;
-		n_proc[i]=1;
-		pcs[i][0]=starting_locations[i];
-		s = starting_locations[i];
-		for(j=0;j<MAX_PROGRAM_LENGTH;j++){
-			mem[s+j] = program[i][j];
-		}
-	}
-
-	return;
-}
-
-// I think this works now
-// Survivors have a non-zero entry in n_proc
-void run_cw(memory_cell mem[MEMORY_SIZE], 
-			int pcs[N_PROGRAMS][MAX_PROCESSES],
-			int c_proc[N_PROGRAMS],
-			int n_proc[N_PROGRAMS],
-			int& duration)
-{
-	int time_step;
-	int i, j;
-
-	time_step = 1;
-	while(time_step <= MAX_STEPS && survivor_count(n_proc) > 2){
-		//    cerr << "time_step = " << time_step << endl;
-		for(i=0;i<N_PROGRAMS;i++){
-			do_one_step(mem,pcs,c_proc,n_proc,i);
-		}
-		time_step++;
-	}
-
-	duration = time_step;
-
-	return;
-}
-
 int max_t_length(int t_lengths[N_TOURNAMENTS])
 {
 	int max = 0;
@@ -719,146 +555,6 @@ int max_t_length(int t_lengths[N_TOURNAMENTS])
 	}
 
 	return max;
-}
-
-
-// I think this works now
-void do_one_step(memory_cell mem[MEMORY_SIZE], int pcs[N_PROGRAMS][MAX_PROCESSES], int c_proc[N_PROGRAMS], int n_proc[N_PROGRAMS], int i)
-{
-	int prog_counter;
-	int pointer_value;
-	int index_a;
-	int value_a;
-	int index_b;
-	int value_b;
-
-	prog_counter = pcs[i][c_proc[i]];
-
-	// cerr << "Executing: " << mem[prog_counter] << endl;
-
-	if(n_proc[i] > 0){
-
-		// current process of program i is c_proc[i]
-		// current program counter is pcs[i][c_proc[i]]
-		// cell to execute is mem[pcs[i][c_proc[i]]]
-
-		// find indices of the memory cells that the instruction is working with
-
-		switch(mem[prog_counter].mode_A){
-		case IMM: // get the value from the current memory location
-			index_a = prog_counter;
-			value_a = mem[index_a].arg_A;
-			break;
-		case DIR: // get the value pointed to by the current memory location relative to the current memory location
-			index_a = (prog_counter + mem[prog_counter].arg_A) % MEMORY_SIZE;
-			value_a = mem[index_a].arg_B;
-			break;
-		case IND: // follow the pointer pointed to by the current memory location
-			pointer_value = (prog_counter + mem[prog_counter].arg_A) % MEMORY_SIZE;
-			index_a = (pointer_value + mem[pointer_value].arg_B) % MEMORY_SIZE;
-			value_a = mem[index_a].arg_B;
-			break;
-		default:
-			cerr << "Bad addressing mode!" << endl;
-		}
-
-		switch(mem[pcs[i][c_proc[i]]].mode_B){
-		case IMM: // get the value from the current memory location
-			index_b = prog_counter;
-			value_b = mem[index_b].arg_B;
-			break;
-		case DIR: // get the value pointed to by the current memory location relative to the current memory location
-			index_b = (prog_counter + mem[prog_counter].arg_B) % MEMORY_SIZE;
-			value_b = mem[index_b].arg_B;
-			break;
-		case IND: // follow the pointer pointed to by the current memory location
-			pointer_value = (prog_counter + mem[prog_counter].arg_B) % MEMORY_SIZE;
-			index_b = (pointer_value + mem[pointer_value].arg_B) % MEMORY_SIZE;
-			value_b = mem[index_b].arg_B;
-			break;
-		default:
-			cerr << "Bad addressing mode!" << endl;
-		}
-
-		// do the instruction
-		switch(mem[pcs[i][c_proc[i]]].code){
-		case DAT:
-			n_proc[i] = 0;
-			break;
-		case MOV:
-			mem[(prog_counter + value_b) % MEMORY_SIZE] = mem[(prog_counter + value_a) % MEMORY_SIZE];
-			break;
-		case ADD:
-			mem[index_b].arg_B += value_a;
-			mem[index_b].arg_B %= MEMORY_SIZE;
-			break;
-		case SUB:
-			mem[index_b].arg_B -= value_a;
-			mem[index_b].arg_B %= MEMORY_SIZE;
-			break;
-		case MUL:
-			mem[index_b].arg_B *= value_a;
-			mem[index_b].arg_B %= MEMORY_SIZE;
-			break;
-		case DIV:
-			if(value_a > 0){
-				mem[index_b].arg_B /= value_a;
-			} else {
-				n_proc[i] = 0;
-			}
-			break;
-		case MOD:
-			if(value_a > 0){
-				mem[index_b].arg_B %= value_a;
-			} else {
-				n_proc[i] = 0;
-			}
-			break;
-		case JMP:
-			pcs[i][c_proc[i]] += value_a;
-			pcs[i][c_proc[i]]--;
-			pcs[i][c_proc[i]] %= MEMORY_SIZE;
-			break;
-		case JMZ:
-			if(mem[index_b].arg_B == 0){
-				pcs[i][c_proc[i]] += value_a;
-				pcs[i][c_proc[i]]--;
-				pcs[i][c_proc[i]] %= MEMORY_SIZE;
-			}
-			break;
-		case DJZ:
-			if(mem[index_b].arg_B != 0){
-				pcs[i][c_proc[i]] += value_a;
-				pcs[i][c_proc[i]]--;
-				pcs[i][c_proc[i]] %= MEMORY_SIZE;
-			}
-			break;
-		case CMP:
-			if(mem[index_b].arg_B == value_a){
-				pcs[i][c_proc[i]]++;
-			}
-			break;
-		case SPL:
-			if(n_proc[i] < MAX_PROCESSES){
-				pcs[i][n_proc[i]] = (pcs[i][c_proc[i]] + value_a) % MEMORY_SIZE;
-				n_proc[i]++;
-			}
-			break;
-		case NOP:
-			break;
-		default:
-			cerr << "Bad instruction" << endl;
-		}
-
-		// update program counter
-		pcs[i][c_proc[i]]++;
-		pcs[i][c_proc[i]] %= MEMORY_SIZE;
-		c_proc[i]++;
-		if(n_proc[i] != 0) c_proc[i] %= n_proc[i]; else c_proc[i] = 0;
-
-	}
-
-	return;
 }
 
 // really just for debugging
@@ -922,52 +618,3 @@ ostream& operator<<(ostream& outs, const memory_cell& cell)
 
 	return outs;
 }
-
-/*
-istream& operator>>(istream& ins, memory_cell& cell)
-{
-char instruct[4];
-char a_mode;
-int a_value;
-char b_mode;
-int b_value;
-char dummy;
-
-// NO ERROR CHECKING AT ALL!!!!
-ins >> instruct >> a_mode >> a_value >> b_mode >> b_value;
-
-if(!strcmp(instruct,"DAT")) cell.code = DAT;
-if(!strcmp(instruct,"MOV")) cell.code = MOV;
-if(!strcmp(instruct,"ADD")) cell.code = ADD;
-if(!strcmp(instruct,"SUB")) cell.code = SUB;
-if(!strcmp(instruct,"MUL")) cell.code = MUL;
-if(!strcmp(instruct,"DIV")) cell.code = DIV;
-if(!strcmp(instruct,"MOD")) cell.code = MOD;
-if(!strcmp(instruct,"JMP")) cell.code = JMP;
-if(!strcmp(instruct,"JMZ")) cell.code = JMZ;
-if(!strcmp(instruct,"DJZ")) cell.code = DJZ;
-if(!strcmp(instruct,"CMP")) cell.code = CMP;
-if(!strcmp(instruct,"SPL")) cell.code = SPL;
-if(!strcmp(instruct,"NOP")) cell.code = NOP;
-
-switch(a_mode){
-case '#': cell.mode_A = IMM; break;
-case '$': cell.mode_A = DIR; break;
-case '@': cell.mode_A = IND; break;
-default: cout << "*** ERROR: undefined addressing mode ***" << endl;
-}
-
-cell.arg_A = a_value;
-
-switch(b_mode){
-case '#': cell.mode_B = IMM; break;
-case '$': cell.mode_B = DIR; break;
-case '@': cell.mode_B = IND; break;
-default: cout << "*** ERROR: undefined addressing mode ***" << endl;
-}
-
-cell.arg_B = b_value;
-
-return ins;
-}
-*/
