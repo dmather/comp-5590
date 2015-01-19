@@ -10,6 +10,7 @@
 #include <string.h>
 #include <CL/cl.h>
 
+bool checkError(cl_int errNum);
 
 void clear_cw(memory_cell mem[MEMORY_SIZE],
               int pcs[N_PROGRAMS][MAX_PROCESSES],
@@ -44,6 +45,11 @@ void do_one_step(memory_cell mem[MEMORY_SIZE],
 int max_t_length(int t_lengths[N_TOURNAMENTS]);
 
 void generate_program(memory_cell prog[MAX_PROGRAM_LENGTH]);
+
+void gen_int_population(int pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH]);
+
+void gen_int_program(int prog[MAX_PROGRAM_LENGTH]);
+
 void generate_population(memory_cell pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH]);
 void generate_starts(int starts[N_PROGRAMS]);
 void record_survivals(int survials[POPULATION_SIZE],
@@ -54,7 +60,13 @@ void breed(memory_cell father[MAX_PROGRAM_LENGTH],
            memory_cell mother[MAX_PROGRAM_LENGTH],
            memory_cell child[MAX_PROGRAM_LENGTH]);
 
+void breed_int(int father[MAX_PROGRAM_LENGTH],
+               int mother[MAX_PROGRAM_LENGTH],
+               int child[MAX_PROGRAM_LENGTH]);
+
 void show_part(memory_cell population[POPULATION_SIZE][MAX_PROGRAM_LENGTH]);
+
+void show_part_int(int population[POPULATION_SIZE][MAX_PROGRAM_LENGTH]);
 
 int survivor_count(int n_proc[MAX_PROCESSES]);
 
@@ -70,7 +82,7 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
 
 bool CreateMemObjects(cl_context context,
                       cl_mem memObjects[8],
-memory_cell pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH],
+int pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH],
 int test[N_TOURNAMENTS],
 int starts[N_TOURNAMENTS][N_PROGRAMS]);
 

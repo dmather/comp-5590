@@ -236,11 +236,6 @@ void record_survivals(int survivals[POPULATION_SIZE],
 	return;
 }
 
-//__kernel void test(__global int *test,
-//                   __global int *starts,
-//                   __global int *tourn_lengths,
-//                   __global memory_cell *pop,
-//                   __global int *survivors)
 __kernel void test(__global int *test,
 				   __global int *starts,
 				   __global memory_cell *population,
@@ -248,9 +243,9 @@ __kernel void test(__global int *test,
 				   __global int *tournament_lengths)
 {
 	// Get the work unit ID
-	__private int gid = get_global_id(0);
-	__private int lid = get_local_id(0);
-	__private mwc64x_state_t rng;
+	int gid = get_global_id(0);
+	int lid = get_local_id(0);
+	mwc64x_state_t rng;
 	MWC64X_SeedStreams(&rng, 2, 4);
 
 	// Simulator vars
@@ -259,9 +254,9 @@ __kernel void test(__global int *test,
 	int selected[N_PROGRAMS];
 	int program_counters[N_PROGRAMS][MAX_PROCESSES];
 	int curr_process[N_PROGRAMS];
-	__local int n_processes[N_PROGRAMS];
+	int n_processes[N_PROGRAMS];
 
-	int rand = MWC64X_NextUint(&rng);
+	__private int rand = MWC64X_NextUint(&rng);
 
 	select_programs(population, current_programs, selected, rng);
 	load_cw(memory, program_counters, curr_process, n_processes, &starts[gid],
@@ -275,17 +270,6 @@ __kernel void test(__global int *test,
 		time_step++;
 		tournament_lengths[gid] = time_step;
 	}
-	
-	//run_cw(memory, program_counters, curr_process, n_processes,
-	//       tournament_lengths[gid]);
 	record_survivals(survivals, n_processes, selected);
 	test[gid] = time_step;
 }
-
-/*
-__kernel void test(__global int *output)
-{
-int gid = get_global_id(0);
-output[gid] = 5*gid;
-}
-*/

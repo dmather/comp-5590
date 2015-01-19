@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sstream>
+#include <bitset>
 #include <CL/cl.h>
 
 using namespace std;
@@ -45,18 +46,21 @@ istream& operator>>(istream& ins, memory_cell& cell);
 int main()
 {
 
-	memory_cell memory[MEMORY_SIZE];
-	int program_counters[N_PROGRAMS][MAX_PROCESSES];
-	int n_processes[N_PROGRAMS];
-	int curr_process[N_PROGRAMS];
+	//memory_cell memory[MEMORY_SIZE];
+	//int program_counters[N_PROGRAMS][MAX_PROCESSES];
+	//int n_processes[N_PROGRAMS];
+	//int curr_process[N_PROGRAMS];
 
-	memory_cell population[POPULATION_SIZE][MAX_PROGRAM_LENGTH];
+    int pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH];
+    int chldrn[POPULATION_SIZE][MAX_PROGRAM_LENGTH];
+
+    //memory_cell population[POPULATION_SIZE][MAX_PROGRAM_LENGTH];
 	memory_cell children[POPULATION_SIZE][MAX_PROGRAM_LENGTH];
 	int survivals[POPULATION_SIZE];
-	int selected[N_PROGRAMS];
+	//int selected[N_PROGRAMS];
 
-	memory_cell current_programs[N_PROGRAMS][MAX_PROGRAM_LENGTH];
-	int starts[N_PROGRAMS];
+	//memory_cell current_programs[N_PROGRAMS][MAX_PROGRAM_LENGTH];
+	//int starts[N_PROGRAMS];
 
 	int generation;
 	int i,j,k;
@@ -80,10 +84,12 @@ int main()
 	srand(1234); // set a specific seed for replicability in debugging
 
 	// generate initial population
-	generate_population(population);
+    //generate_population(population);
+    gen_int_population(pop);
 
 	cout << "Before: " << endl;
-	show_part(population);
+    show_part_int(pop);
+    //show_part(population);
 
 	// OpenCL host code
 	context = CreateContext();
@@ -102,7 +108,7 @@ int main()
 	char name[2048] = "";
 	size_t workItems[3];
 	size_t paramSize = -1;
-	unsigned long localMemSize = -1;
+	//unsigned long localMemSize = -1;
 	// This needs to be adjusted
 	size_t globalWorkSize[1] = { N_TOURNAMENTS };
 	size_t localWorkSize[1] = { 1 };
@@ -110,7 +116,7 @@ int main()
 	errNum = clGetDeviceInfo(device, CL_DEVICE_NAME,
 		sizeof(name),
 		&name, &paramSize);
-	printf("Requested %d bytes\n", paramSize);
+	printf("Requested %lu bytes\n", paramSize);
 	printf("Device name: %s.\n", name);
 	if(errNum != CL_SUCCESS)
 	{
@@ -119,7 +125,7 @@ int main()
 	errNum = clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES,
 		sizeof(workItems),
 		&workItems, &paramSize);
-	printf("Requested %d bytes\n", paramSize);
+	printf("Requested %lu bytes\n", paramSize);
 	printf("Max work items: %lu\n", workItems[0]);
 	if(errNum != CL_SUCCESS)
 	{
@@ -133,7 +139,7 @@ int main()
 	}
 	// End OpenCL host code
 
-	for(generation = 0; generation < MAX_GENERATIONS; generation++){
+    for(generation = 0; generation < MAX_GENERATIONS; generation++){
 		// run tournaments
 		clear_survivals(survivals);
 		for(i = 0; i < N_TOURNAMENTS; i++){
@@ -161,8 +167,8 @@ int main()
 		// Example buffer objects
 		memObjects[0] = clCreateBuffer(context,
 				CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-				sizeof(memory_cell) * (POPULATION_SIZE * MAX_PROGRAM_LENGTH), 
-				population, &errNo);
+                sizeof(int) * (POPULATION_SIZE * MAX_PROGRAM_LENGTH),
+                pop, &errNo);
 		cout << "Cl Error: " << errNo << endl;
 		memObjects[7] = clCreateBuffer(context,
 				CL_MEM_WRITE_ONLY,
@@ -193,17 +199,17 @@ int main()
 			printf("Error setting kernel arguments. %d\n", errNum);
 		}
 
-		size_t kernel_work_group_size;
+        size_t kernel_work_group_size;
 		clGetKernelWorkGroupInfo(kernel, device, CL_KERNEL_WORK_GROUP_SIZE,
 			sizeof(size_t), &kernel_work_group_size, NULL);
 		cout << "Kernel Work Group Size: " << kernel_work_group_size << endl;
 
-		errNum = clEnqueueNDRangeKernel(commandQueue, kernel, 1, NULL,
+		if(checkError(errNum = clEnqueueNDRangeKernel(commandQueue, kernel, 1, NULL,
 			globalWorkSize, localWorkSize, 0,
-			NULL, NULL);
-		if(errNum != CL_SUCCESS)
+			NULL, NULL)))
 		{
 			printf("Error queueing the kernel for execution. %d\n", errNum);
+			continue;
 		}
 
 		clFinish(commandQueue);
@@ -213,20 +219,25 @@ int main()
 			test[i] = -1;
 		}
 
-		errNum = clEnqueueReadBuffer(commandQueue, memObjects[7], CL_TRUE, 0,
-			sizeof(int) * N_TOURNAMENTS, test, 0, NULL, NULL);
-		cout << "Read Buffer Error: " << errNum << endl;
-		errNum = clEnqueueReadBuffer(commandQueue, memObjects[8], CL_TRUE, 0,
-			sizeof(*gpu_starts), starts, 0, NULL,
-			NULL);
-		cout << "Read Buffer Error: " << errNum << endl;
-		errNum = clEnqueueReadBuffer(commandQueue, memObjects[1], CL_TRUE, 0,
-			sizeof(int) * POPULATION_SIZE, survivals, 0, NULL, NULL);
-		cout << "Read Buffer Error: " << errNum << endl;
-		errNum = clEnqueueReadBuffer(commandQueue, memObjects[2], CL_TRUE, 0,
+		if(checkError(errNum = clEnqueueReadBuffer(commandQueue, memObjects[7], CL_TRUE, 0,
+												   sizeof(int) * N_TOURNAMENTS, test, 0, NULL, NULL)))
+		{
+			cout << "Read Buffer Error: " << errNum << endl;
+			continue;
+		}
+		if(checkError(errNum = clEnqueueReadBuffer(commandQueue, memObjects[1], CL_TRUE, 0,
+												   sizeof(int) * POPULATION_SIZE, survivals, 0, NULL, NULL)))
+		{
+			cout << "Read Buffer Error: " << errNum << endl;
+			continue;
+		}
+		if(checkError(errNum = clEnqueueReadBuffer(commandQueue, memObjects[2], CL_TRUE, 0,
 			sizeof(int) * N_TOURNAMENTS, tournament_lengths, 0, NULL,
-			NULL);
-		cout << "Read Buffer Error: " << errNum << endl;
+			NULL)))
+		{
+			cout << "Read Buffer Error: " << errNum << endl;
+			continue;
+		}
 
 		for(int i = 0; i < N_TOURNAMENTS; i++)
 		{
@@ -250,8 +261,8 @@ int main()
 		// breed victors
 		// the survivals array has a count of how many times each program won
 		// use that to select which programs get to breed
-		j = 0;
-		for(i = 0; i < POPULATION_SIZE; i++){
+        j = 0;
+		for(int i = 0; i < POPULATION_SIZE; i++){
 			// find two parents for child
 			while(survivals[j] == 0){
 				j++;
@@ -263,29 +274,30 @@ int main()
 				k++;
 				k %= POPULATION_SIZE;
 			}
-			breed(population[j],population[k],children[i]);
+            //breed(population[j],population[k],children[i]);
+            breed_int(pop[j],pop[k],chldrn[i]);
 
 			j = k + 1;
 			j %= POPULATION_SIZE;
 		}
 
 		// children becomes next generation
-		for(i = 0; i < POPULATION_SIZE; i++){
+		for(int i = 0; i < POPULATION_SIZE; i++){
 			for(j = 0; j < MAX_PROGRAM_LENGTH; j++){
-				population[i][j] = children[i][j];
+                pop[i][j] = chldrn[i][j];
 			}
 		}
 		// Release Memory Objects (Maybe to save some kernel memory
-		for(unsigned int i = 0; i<9; i++)
+		for(int i = 0; i < 9; i++)
 		{
 			clReleaseMemObject(memObjects[i]);
 		}
 		clReleaseKernel(kernel);
-		clFinish(commandQueue);
+		//clFinish(commandQueue);
 		//Sleep(1000);
 	}
 	cout << "After: " << endl;
-	show_part(population);
+    show_part_int(pop);
 
 	//  for(i = 0; i < 10; i++){
 	//    cout << "Generation " << i << " max run time = " << max_tournament_length[i] << endl;
@@ -300,13 +312,28 @@ int main()
 	//clFinish(commandQueue);
 
 	// Hacky cleanup
-	clReleaseProgram(program);
-	clReleaseContext(context);
-	clReleaseCommandQueue(commandQueue);
+	clFinish(commandQueue);
+	//for(unsigned int i = 0; i<9; i++)
+	//{
+	//	clReleaseMemObject(memObjects[i]);
+	//}
+	//clReleaseKernel(kernel);
+	//clReleaseProgram(program);
+	//clReleaseContext(context);
+	//clReleaseCommandQueue(commandQueue);
+
 
 	cin.get();
 
 	return 0;
+}
+
+bool checkError(cl_int errNum)
+{
+	if(errNum == CL_SUCCESS)
+		return false;
+	else
+		return true;
 }
 
 cl_context CreateContext(void)
@@ -435,7 +462,7 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
 
 bool CreateMemObjects(cl_context context,
 					  cl_mem memObjects[9],
-					  memory_cell pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH],
+                      int pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH],
 					  int test[N_TOURNAMENTS],
 					  int starts[N_TOURNAMENTS][N_PROGRAMS])
 {
@@ -471,6 +498,36 @@ void clear_survivals(int survivals[POPULATION_SIZE])
 	return;
 }
 
+void gen_int_program(int prog[MAX_PROGRAM_LENGTH])
+{
+    int i;
+    for(i = 0; i<MAX_PROGRAM_LENGTH; i++) {
+        // There are 13 instruction which fit into 4-bits
+        // Each variable is temporary so we can bitshift them the
+        // right direction.
+        unsigned tInst = (instruction) (rand() % N_OPERATIONS);
+        unsigned tMode_A = (addressing) (rand() % N_MODES);
+        int tArg_A = rand() % MEMORY_SIZE;
+        unsigned tMode_B = (addressing) (rand() % N_MODES);
+        int tArg_B = rand() % MEMORY_SIZE;
+
+        // We bitshift by the according number of bits we've given each
+        // type 4-bits for instruction, 2-bits for modes, and 12-bits for
+        // arguments. All numbers are unsigned except arguments which should
+        // be twos complement and are signed so they need an additional bit.
+        // e.g in our argument we have 11 data bits and 1 sign bit.
+        tInst<<=28;
+        tMode_A<<=26;
+        tArg_A<<=14;
+        tMode_B<<=12;
+        tArg_B<<=0;
+
+        prog[i] = prog[i] | tInst | tMode_A | tArg_A | tMode_B | tArg_B;
+        // We just need to make sure that the data makes sense.
+        cout << (bitset<32>) prog[i] << endl;
+    }
+}
+
 // generates a program with random instructions
 void generate_program(memory_cell prog[MAX_PROGRAM_LENGTH])
 {
@@ -492,6 +549,15 @@ void generate_population(memory_cell pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH])
 	for(i=0;i<POPULATION_SIZE;i++){
 		generate_program(pop[i]);
 	}
+}
+
+void gen_int_population(int pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH])
+{
+    int i;
+
+    for(i = 0; i<POPULATION_SIZE; i++) {
+        gen_int_program(pop[i]);
+    }
 }
 
 void generate_starts(int starts[N_PROGRAMS])
@@ -543,6 +609,52 @@ void breed(memory_cell father[MAX_PROGRAM_LENGTH],
 	return;
 }
 
+
+void breed_int(int father[MAX_PROGRAM_LENGTH],
+               int mother[MAX_PROGRAM_LENGTH],
+               int child[MAX_PROGRAM_LENGTH])
+{
+    int cut_location;
+    int point_mutation;
+    int i;
+
+    unsigned tInst;
+    unsigned tMode_A;
+    int tArg_A;
+    unsigned tMode_B;
+    int tArg_B;
+
+    cut_location = (rand() % (MAX_PROGRAM_LENGTH -2)) + 1;
+    point_mutation = rand() % MAX_PROGRAM_LENGTH;
+
+    for(i = 0; i<cut_location; i++)
+    {
+        child[i] = father[i];
+    }
+    for(i = cut_location; i<MAX_PROGRAM_LENGTH; i++)
+    {
+        child[i] = mother[i];
+    }
+
+    // Generate our new values
+    tInst = (instruction) (rand() % N_OPERATIONS);
+    tMode_A = (addressing) (rand() % N_MODES);
+    tArg_A = rand() % MEMORY_SIZE;
+    tMode_B = (addressing) (rand() % N_MODES);
+    tArg_B = rand() % MEMORY_SIZE;
+
+    // Shift to correct locations
+    tInst<<=28;
+    tMode_A<<=26;
+    tArg_A<<=14;
+    tMode_B<<=12;
+    tArg_B<<=0;
+
+    child[point_mutation] = child[point_mutation] | tInst | tMode_A | tArg_A |
+            tMode_B | tArg_B;
+    cout << (bitset<32>) child[point_mutation] << endl;
+}
+
 int max_t_length(int t_lengths[N_TOURNAMENTS])
 {
 	int max = 0;
@@ -567,6 +679,71 @@ void show_part(memory_cell population[POPULATION_SIZE][MAX_PROGRAM_LENGTH])
 	}
 
 	return;
+}
+
+void show_part_int(int population[POPULATION_SIZE][MAX_PROGRAM_LENGTH])
+{
+    int i;
+    for(i = 0; i<10; i++) {
+        int memObj = population[0][i];
+        unsigned int tInst;
+        unsigned int tMode_A;
+        int tArg_A;
+        unsigned int tMode_B;
+        int tArg_B;
+
+        // Binary and the memObj with a bitmask to get the correct var.
+        tInst = memObj &    0b11110000000000000000000000000000;
+        tInst>>=28;
+        tMode_A = memObj &  0b00001100000000000000000000000000;
+        tMode_A>>=26;
+        tArg_A = memObj &   0b00000011111111111100000000000000;
+        tArg_A>>=14;
+        tMode_B = memObj &  0b00000000000000000011000000000000;
+        tMode_B>>=12;
+        tArg_B = memObj &   0b00000000000000000000111111111111;
+        tArg_B>>=0;
+
+        /*
+        cout << "Inst: " << tInst;
+        cout << ", Mode A: " << tMode_A;
+        cout << ", Arg A: " << tArg_A;
+        cout << ", Mode B: " << tMode_B;
+        cout << ", Arg B: " << tArg_B << endl;
+        */
+
+        switch(tInst) {
+        case DAT: cout << "DAT"; break;
+        case MOV: cout << "MOV"; break;
+        case ADD: cout << "ADD"; break;
+        case SUB: cout << "SUB"; break;
+        case MUL: cout << "MUL"; break;
+        case DIV: cout << "DIV"; break;
+        case MOD: cout << "MOD"; break;
+        case JMP: cout << "JMP"; break;
+        case JMZ: cout << "JMZ"; break;
+        case DJZ: cout << "DJZ"; break;
+        case CMP: cout << "CMP"; break;
+        case SPL: cout << "SPL"; break;
+        case NOP: cout << "NOP"; break;
+        default: cout << endl << "*** ERRR: no such instruction ***" << endl;
+        }
+        cout << " ";
+        switch(tMode_A) {
+        case IMM: cout << "#"; break;
+        case DIR: cout << "$"; break;
+        case IND: cout << "@"; break;
+        default: cout << endl << "*** ERROR: no such addressing mode" << endl;
+        }
+        cout << tArg_A << " ";
+        switch(tMode_B) {
+        case IMM: cout << "#"; break;
+        case DIR: cout << "$"; break;
+        case IND: cout << "@"; break;
+        default: cout << endl << "*** ERROR: no such addressing mode" << endl;
+        }
+        cout << tArg_B << " " << endl;
+    }
 }
 
 // Count how many have processes still running

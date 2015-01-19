@@ -1,14 +1,14 @@
 #ifndef SHAREDREDCODE_H
 #define SHAREDREDCODE_H
 
-#define MEMORY_SIZE 400 // just little for debugging
-#define N_PROGRAMS 4 // first just test each instruction
-#define MAX_PROCESSES 4
-#define MAX_STEPS 10
+#define MEMORY_SIZE 500 // just little for debugging
+#define N_PROGRAMS 2 // first just test each instruction
+#define MAX_PROCESSES 2
+#define MAX_STEPS 100
 #define MAX_PROGRAM_LENGTH 20
-#define POPULATION_SIZE 5
-#define MAX_GENERATIONS 5
-#define N_TOURNAMENTS 4
+#define POPULATION_SIZE 20
+#define MAX_GENERATIONS 20
+#define N_TOURNAMENTS 100
 #define N_MODES 3
 #define N_OPERATIONS 13
 
