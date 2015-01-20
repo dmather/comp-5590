@@ -245,9 +245,9 @@ int main()
 			cout << "Survivals: " << survivals[i] << endl;
 		}
 
-		cout << "Generation: " << generation << endl;
+		//cout << "Generation: " << generation << endl;
 
-		cout << "Max Tournament Length: " << max_t_length(tournament_lengths) << endl;
+		//cout << "Max Tournament Length: " << max_t_length(tournament_lengths) << endl;
 		max_tournament_length[generation] = max_t_length(tournament_lengths);
 
 		// variation here??? are the tournaments doing anything?
@@ -524,7 +524,7 @@ void gen_int_program(int prog[MAX_PROGRAM_LENGTH])
 
         prog[i] = prog[i] | tInst | tMode_A | tArg_A | tMode_B | tArg_B;
         // We just need to make sure that the data makes sense.
-        cout << (bitset<32>) prog[i] << endl;
+        //cout << (bitset<32>) prog[i] << endl;
     }
 }
 
@@ -652,7 +652,7 @@ void breed_int(int father[MAX_PROGRAM_LENGTH],
 
     child[point_mutation] = child[point_mutation] | tInst | tMode_A | tArg_A |
             tMode_B | tArg_B;
-    cout << (bitset<32>) child[point_mutation] << endl;
+    //cout << (bitset<32>) child[point_mutation] << endl;
 }
 
 int max_t_length(int t_lengths[N_TOURNAMENTS])
@@ -726,21 +726,24 @@ void show_part_int(int population[POPULATION_SIZE][MAX_PROGRAM_LENGTH])
         case CMP: cout << "CMP"; break;
         case SPL: cout << "SPL"; break;
         case NOP: cout << "NOP"; break;
-        default: cout << endl << "*** ERRR: no such instruction ***" << endl;
+        default: cout << endl << "*** ERRR: no such instruction: "
+                      << tInst << " At Index: " << i << endl;
         }
         cout << " ";
         switch(tMode_A) {
         case IMM: cout << "#"; break;
         case DIR: cout << "$"; break;
         case IND: cout << "@"; break;
-        default: cout << endl << "*** ERROR: no such addressing mode" << endl;
+        default: cout << endl << "*** ERROR: no such addressing mode: "
+                      << tMode_A << " At Index: " << i << endl;
         }
         cout << tArg_A << " ";
         switch(tMode_B) {
         case IMM: cout << "#"; break;
         case DIR: cout << "$"; break;
         case IND: cout << "@"; break;
-        default: cout << endl << "*** ERROR: no such addressing mode" << endl;
+        default: cout << endl << "*** ERROR: no such addressing mode: "
+                      << tMode_B << " At Index: " << i << endl;
         }
         cout << tArg_B << " " << endl;
     }

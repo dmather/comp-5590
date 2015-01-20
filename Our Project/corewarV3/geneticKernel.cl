@@ -136,6 +136,7 @@ void do_one_step(int mem[MEMORY_SIZE], int pcs[N_PROGRAMS][MAX_PROCESSES], int c
     int index_b;
     int value_b;
     memory_cell tCell;
+    memory_cell myCell;
 
     prog_counter = pcs[i][c_proc[i]];
     // cerr << "Executing: " << mem[prog_counter] << endl;
@@ -190,36 +191,36 @@ void do_one_step(int mem[MEMORY_SIZE], int pcs[N_PROGRAMS][MAX_PROCESSES], int c
             mem[(prog_counter + value_b) % MEMORY_SIZE] = mem[(prog_counter + value_a) % MEMORY_SIZE];
             break;
         case ADD:
-            memory_cell myCell;
-            myCell = convertIntToMemoryCell(mem[index_b]).arg_B += value_a;
+            myCell = convertIntToMemoryCell(mem[index_b]);
+            myCell.arg_B += value_a;
             myCell.arg_B %= MEMORY_SIZE;
             mem[index_b] = convertMemoryCellToInt(myCell);
             break;
         case SUB:
-            memory_cell myCell;
-            myCell = convertIntToMemoryCell(mem[index_b]).arg_B -= value_a;
+            myCell = convertIntToMemoryCell(mem[index_b]);
+            myCell.arg_B -= value_a;
             myCell.arg_B %= MEMORY_SIZE;
             mem[index_b] = convertMemoryCellToInt(myCell);
             break;
         case MUL:
-            memory_cell myCell;
-            myCell = convertIntToMemoryCell(mem[index_b]).arg_B *= value_a;
+            myCell = convertIntToMemoryCell(mem[index_b]);
+            myCell.arg_B *= value_a;
             myCell.arg_B %= MEMORY_SIZE;
             mem[index_b] = convertMemoryCellToInt(myCell);
             break;
         case DIV:
-            memory_cell myCell;
             if(value_a > 0){
-                myCell = convertIntToMemoryCell(mem[index_b]).arg_B /= value_a;
+                myCell = convertIntToMemoryCell(mem[index_b]);
+                myCell.arg_B /= value_a;
                 mem[index_b] = convertMemoryCellToInt(myCell);
             } else {
                 n_proc[i] = 0;
             }
             break;
         case MOD:
-            memory_cell myCell;
             if(value_a > 0){
-                myCell = convertIntToMemoryCell(mem[index_b]).arg_B %= value_a;
+                myCell = convertIntToMemoryCell(mem[index_b]);
+                myCell.arg_B %= value_a;
                 mem[index_b] = convertMemoryCellToInt(myCell);
             } else {
                 n_proc[i] = 0;
