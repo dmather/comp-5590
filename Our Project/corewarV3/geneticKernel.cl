@@ -42,15 +42,15 @@ void select_programs(int pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH],
 memory_cell convertIntToMemoryCell(int mem)
 {
     memory_cell tCell;
-    tCell.code = mem & 0b11110000000000000000000000000000;
+    tCell.code = mem & 0xf0000000;
     tCell.code>>=28;
-    tCell.mode_A = mem & 0b00001100000000000000000000000000;
+    tCell.mode_A = mem & 0x0c000000;
     tCell.mode_A>>=26;
-    tCell.arg_A = mem & 0b00000011111111111100000000000000;
+    tCell.arg_A = mem & 0x03FFC000;
     tCell.arg_A>>=14;
-    tCell.mode_B = mem & 0b00000000000000000011000000000000;
+    tCell.mode_B = mem & 0x00003000;
     tCell.mode_B>>=12;
-    tCell.arg_B = mem & 0b00000000000000000000111111111111;
+    tCell.arg_B = mem & 0x00000FFF; 
     tCell.arg_B>>=0;
 
     return tCell;
@@ -301,13 +301,17 @@ __kernel void test(__global int *test,
                    __global int *starts,
                    __global int *population,
                    __global int *survivals,
-                   __global int *tournament_lengths)
+                   __global int *tournament_lengths,
+                   __global int *seed)
 {
     // Get the work unit ID
     int gid = get_global_id(0);
     int lid = get_local_id(0);
     mwc64x_state_t rng;
-    MWC64X_SeedStreams(&rng, 2, 4);
+    // We need to provide a random value for a seed at some time
+    // we should do this by providing a random int as a parameter to the
+    // kernel
+    MWC64X_SeedStreams(&rng, seed[gid], lid);
 
     // Simulator vars
     int current_programs[N_PROGRAMS][MAX_PROGRAM_LENGTH];
@@ -333,5 +337,5 @@ __kernel void test(__global int *test,
         tournament_lengths[gid] = time_step;
     }
     record_survivals(survivals, n_processes, selected);
-    test[gid] = time_step;
+    test[gid] = rand % MEMORY_SIZE;
 }

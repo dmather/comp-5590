@@ -162,6 +162,11 @@ int main()
 		//	printf("Failed to create mem objects\n");
 		//	return 1;
 		//}
+        
+        int randSeed[N_TOURNAMENTS];
+        for(i = 0; i < N_TOURNAMENTS; i++) {
+            randSeed[i] = rand();
+        }
 
 		cl_int errNo;
 		// Example buffer objects
@@ -187,12 +192,17 @@ int main()
 			CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
 			sizeof(int) * N_TOURNAMENTS, tournament_lengths, &errNo);
 		cout << "Cl Error: " << errNo << endl;
+        memObjects[3] = clCreateBuffer(context,
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(int) * N_TOURNAMENTS, randSeed, &errNo);
+		cout << "Cl Error: " << errNo << endl;
 
 		errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[7]);
 		errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[8]);
 		errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[0]);
 		errNum |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &memObjects[1]);
 		errNum |= clSetKernelArg(kernel, 4, sizeof(cl_mem), &memObjects[2]);
+		errNum |= clSetKernelArg(kernel, 5, sizeof(cl_mem), &memObjects[3]);
 		
 		if(errNum != CL_SUCCESS)
 		{
@@ -650,7 +660,7 @@ void breed_int(int father[MAX_PROGRAM_LENGTH],
     tMode_B<<=12;
     tArg_B<<=0;
 
-    child[point_mutation] = child[point_mutation] | tInst | tMode_A | tArg_A |
+    child[point_mutation] = tInst | tMode_A | tArg_A |
             tMode_B | tArg_B;
     //cout << (bitset<32>) child[point_mutation] << endl;
 }
