@@ -292,6 +292,8 @@ void record_survivals(int survivals[POPULATION_SIZE],
 		if(n_process[i] > 0){
 			survivals[selected[i]]++;
 		}
+        else
+            survivals[selected[i]] = survivals[selected[i]];
 	}
 
 	return;
