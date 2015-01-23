@@ -37,6 +37,7 @@
 #include <sstream>
 #include <bitset>
 #include <CL/cl.h>
+#include <ctime>
 
 using namespace std;
 
@@ -45,31 +46,14 @@ istream& operator>>(istream& ins, memory_cell& cell);
 
 int main()
 {
-
-	//memory_cell memory[MEMORY_SIZE];
-	//int program_counters[N_PROGRAMS][MAX_PROCESSES];
-	//int n_processes[N_PROGRAMS];
-	//int curr_process[N_PROGRAMS];
-
     int pop[POPULATION_SIZE][MAX_PROGRAM_LENGTH];
     int chldrn[POPULATION_SIZE][MAX_PROGRAM_LENGTH];
-
-    //memory_cell population[POPULATION_SIZE][MAX_PROGRAM_LENGTH];
 	memory_cell children[POPULATION_SIZE][MAX_PROGRAM_LENGTH];
 	int survivals[POPULATION_SIZE];
-	//int selected[N_PROGRAMS];
-
-	//memory_cell current_programs[N_PROGRAMS][MAX_PROGRAM_LENGTH];
-	//int starts[N_PROGRAMS];
-
 	int generation;
 	int i,j,k;
-
-	int tournament_lengths[N_TOURNAMENTS];
 	int max_tournament_length[MAX_GENERATIONS];
-
 	// Vars needed for GPU kernel
-	int gpu_starts[N_TOURNAMENTS][N_PROGRAMS];
 
 	// OpenCL variables
 	cl_context context = 0;
@@ -79,28 +63,24 @@ int main()
 	cl_kernel kernel = 0;
 	cl_mem memObjects[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	cl_int errNum;
-	int test[N_TOURNAMENTS];
 
-	srand(1234); // set a specific seed for replicability in debugging
+	//srand(1234); // set a specific seed for replicability in debugging
+	srand(time(NULL)); // Give us a more real random selection
 
 	// generate initial population
-    //generate_population(population);
     gen_int_population(pop);
 
 	cout << "Before: " << endl;
     show_part_int(pop);
-    //show_part(population);
 
 	// OpenCL host code
 	context = CreateContext();
-	if(context == NULL)
-	{
+	if(context == NULL) {
 		printf("Failed to create OpenCL context.\n");
 	}
 
 	commandQueue = CreateCommandQueue(context, &device);
-	if(commandQueue == NULL)
-	{
+	if(commandQueue == NULL) {
 		// Cleanup method
 		return 1;
 	}
@@ -108,9 +88,7 @@ int main()
 	char name[2048] = "";
 	size_t workItems[3];
 	size_t paramSize = -1;
-	//unsigned long localMemSize = -1;
 	// This needs to be adjusted
-	size_t globalWorkSize[1] = { N_TOURNAMENTS };
 	size_t localWorkSize[1] = { 1 };
 
 	errNum = clGetDeviceInfo(device, CL_DEVICE_NAME,
@@ -118,8 +96,7 @@ int main()
 		&name, &paramSize);
 	printf("Requested %lu bytes\n", paramSize);
 	printf("Device name: %s.\n", name);
-	if(errNum != CL_SUCCESS)
-	{
+	if(errNum != CL_SUCCESS) {
 		printf("Error getting device info: %d\n", errNum);
 	}
 	errNum = clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES,
@@ -127,14 +104,12 @@ int main()
 		&workItems, &paramSize);
 	printf("Requested %lu bytes\n", paramSize);
 	printf("Max work items: %lu\n", workItems[0]);
-	if(errNum != CL_SUCCESS)
-	{
+	if(errNum != CL_SUCCESS) {
 		printf("Error getting device info: %d\n", errNum);
 	}
 	
 	program = CreateProgram(context, device, "geneticKernel.cl");
-	if(program == NULL)
-	{
+	if(program == NULL) {
 		return 1;
 	}
 	// End OpenCL host code
@@ -142,34 +117,38 @@ int main()
     for(generation = 0; generation < MAX_GENERATIONS; generation++){
 		// run tournaments
 		clear_survivals(survivals);
-		for(i = 0; i < N_TOURNAMENTS; i++){
-			generate_starts(gpu_starts[i]);
-			//select_programs(population,current_programs,selected);
-			//load_cw(memory,program_counters,curr_process,
-			//        n_processes,starts,current_programs);
-			//run_cw(memory,program_counters,curr_process,n_processes,tournament_lengths[i]);
-			//record_survivals(survivals,n_processes,selected);
-		}
-
-		kernel = clCreateKernel(program, "test", NULL);
-		if(kernel == NULL)
-		{
+        
+        // Create our Kernel
+        kernel = clCreateKernel(program, "test", NULL);
+		if(kernel == NULL) {
 			printf("Failed to create kernel.\n");
 		}
+       
+        // Get the maximum number of work items that is supported with this
+        // kernel
+        size_t NUM_TOURNAMENTS;
+		clGetKernelWorkGroupInfo(kernel, device, CL_KERNEL_WORK_GROUP_SIZE,
+			sizeof(size_t), &NUM_TOURNAMENTS, NULL);
+		cout << "Kernel Work Group Size: " << NUM_TOURNAMENTS << endl;
 
-		//if(!CreateMemObjects(context, memObjects, population, test, gpu_starts))
-		//{
-		//	printf("Failed to create mem objects\n");
-		//	return 1;
-		//}
-        
-        int randSeed[N_TOURNAMENTS];
-        for(i = 0; i < N_TOURNAMENTS; i++) {
+	    int tournament_lengths[NUM_TOURNAMENTS];
+        size_t globalWorkSize[1] = { NUM_TOURNAMENTS };
+	    int gpu_starts[NUM_TOURNAMENTS][N_PROGRAMS];
+	    int test[NUM_TOURNAMENTS];
+
+		for(i = 0; i < NUM_TOURNAMENTS; i++) {
+			generate_starts(gpu_starts[i]);
+		}
+
+        // We need random numbers to see the opencl rng so we load an array
+        // with them
+        int randSeed[NUM_TOURNAMENTS];
+        for(i = 0; i < NUM_TOURNAMENTS; i++) {
             randSeed[i] = rand();
         }
 
 		cl_int errNo;
-		// Example buffer objects
+        // Load all the objects into OpenCL buffers.
 		memObjects[0] = clCreateBuffer(context,
 				CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
                 sizeof(int) * (POPULATION_SIZE * MAX_PROGRAM_LENGTH),
@@ -177,11 +156,11 @@ int main()
 		cout << "Cl Error: " << errNo << endl;
 		memObjects[7] = clCreateBuffer(context,
 				CL_MEM_WRITE_ONLY,
-				sizeof(int) * N_TOURNAMENTS, NULL, &errNo);
+				sizeof(int) * NUM_TOURNAMENTS, NULL, &errNo);
 		cout << "Cl Error: " << errNo << endl;
 		memObjects[8] = clCreateBuffer(context,
 				CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-				sizeof(int) * (N_TOURNAMENTS * N_PROGRAMS),
+				sizeof(int) * (NUM_TOURNAMENTS * N_PROGRAMS),
 				gpu_starts, &errNo);
 		cout << "Cl Error: " << errNo << endl;
 		memObjects[1] = clCreateBuffer(context,
@@ -190,13 +169,16 @@ int main()
 		cout << "Cl Error: " << errNo << endl;
 		memObjects[2] = clCreateBuffer(context,
 			CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-			sizeof(int) * N_TOURNAMENTS, tournament_lengths, &errNo);
+			sizeof(int) * NUM_TOURNAMENTS, tournament_lengths, &errNo);
 		cout << "Cl Error: " << errNo << endl;
         memObjects[3] = clCreateBuffer(context,
             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            sizeof(int) * N_TOURNAMENTS, randSeed, &errNo);
+            sizeof(int) * NUM_TOURNAMENTS, randSeed, &errNo);
 		cout << "Cl Error: " << errNo << endl;
 
+        // Set the kernel arguments for the kernel.
+        // TODO: Remap the kernel arguments so that they don't occupy random
+        // indexes of the memObjects array.
 		errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[7]);
 		errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[8]);
 		errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[0]);
@@ -204,61 +186,54 @@ int main()
 		errNum |= clSetKernelArg(kernel, 4, sizeof(cl_mem), &memObjects[2]);
 		errNum |= clSetKernelArg(kernel, 5, sizeof(cl_mem), &memObjects[3]);
 		
-		if(errNum != CL_SUCCESS)
-		{
+		if(errNum != CL_SUCCESS) {
 			printf("Error setting kernel arguments. %d\n", errNum);
 		}
 
-        size_t kernel_work_group_size;
-		clGetKernelWorkGroupInfo(kernel, device, CL_KERNEL_WORK_GROUP_SIZE,
-			sizeof(size_t), &kernel_work_group_size, NULL);
-		cout << "Kernel Work Group Size: " << kernel_work_group_size << endl;
 
 		if(checkError(errNum = clEnqueueNDRangeKernel(commandQueue, kernel, 1, NULL,
 			globalWorkSize, localWorkSize, 0,
-			NULL, NULL)))
-		{
+			NULL, NULL))) {
 			printf("Error queueing the kernel for execution. %d\n", errNum);
 			continue;
 		}
 
+        // Wait for the commands to be processed
 		clFinish(commandQueue);
 
-		for(int i = 0; i < N_TOURNAMENTS; i++)
-		{
-			test[i] = -1;
-		}
-
-		if(checkError(errNum = clEnqueueReadBuffer(commandQueue, memObjects[7], CL_TRUE, 0,
-												   sizeof(int) * N_TOURNAMENTS, test, 0, NULL, NULL)))
-		{
+		if(checkError(errNum = clEnqueueReadBuffer(commandQueue,
+                        memObjects[7], CL_TRUE, 0,
+                        sizeof(int) * NUM_TOURNAMENTS,
+                        test, 0, NULL, NULL))) {
 			cout << "Read Buffer Error: " << errNum << endl;
 			continue;
 		}
-		if(checkError(errNum = clEnqueueReadBuffer(commandQueue, memObjects[1], CL_TRUE, 0,
-												   sizeof(int) * POPULATION_SIZE, survivals, 0, NULL, NULL)))
-		{
+		if(checkError(errNum = clEnqueueReadBuffer(commandQueue, memObjects[1],
+                        CL_TRUE, 0,
+                        sizeof(int) * POPULATION_SIZE, 
+                        survivals, 0, NULL, NULL))) {
 			cout << "Read Buffer Error: " << errNum << endl;
 			continue;
 		}
 		if(checkError(errNum = clEnqueueReadBuffer(commandQueue, memObjects[2], CL_TRUE, 0,
-			sizeof(int) * N_TOURNAMENTS, tournament_lengths, 0, NULL,
-			NULL)))
-		{
+			sizeof(int) * NUM_TOURNAMENTS, tournament_lengths, 0, NULL,
+			NULL))) {
 			cout << "Read Buffer Error: " << errNum << endl;
 			continue;
 		}
 
-		for(int i = 0; i < N_TOURNAMENTS; i++)
-		{
+		for(int i = 0; i < NUM_TOURNAMENTS; i++) {
 			cout << "Random Number: " << test[i] << endl;
-			cout << "Survivals: " << survivals[i] << endl;
 		}
+
+        for(int i = 0; i < POPULATION_SIZE; i++) {
+            cout << "Survivals: " << survivals[i] << endl;
+        }
 
 		//cout << "Generation: " << generation << endl;
 
 		//cout << "Max Tournament Length: " << max_t_length(tournament_lengths) << endl;
-		max_tournament_length[generation] = max_t_length(tournament_lengths);
+		//max_tournament_length[generation] = max_t_length(tournament_lengths);
 
 		// variation here??? are the tournaments doing anything?
 		//    if(generation % 10 == 0){
@@ -303,8 +278,6 @@ int main()
 			clReleaseMemObject(memObjects[i]);
 		}
 		clReleaseKernel(kernel);
-		//clFinish(commandQueue);
-		//Sleep(1000);
 	}
 	cout << "After: " << endl;
     show_part_int(pop);
@@ -319,20 +292,10 @@ int main()
 	//    cout << "Generation " << i << " max run time = " << max_tournament_length[i] << endl;
 	//  }
 
-	//clFinish(commandQueue);
-
 	// Hacky cleanup
 	clFinish(commandQueue);
-	//for(unsigned int i = 0; i<9; i++)
-	//{
-	//	clReleaseMemObject(memObjects[i]);
-	//}
-	//clReleaseKernel(kernel);
-	//clReleaseProgram(program);
-	//clReleaseContext(context);
-	//clReleaseCommandQueue(commandQueue);
 
-
+    // We do this so that the application doesn't close right away on windows 
 	cin.get();
 
 	return 0;
@@ -393,14 +356,12 @@ cl_command_queue CreateCommandQueue(cl_context context, cl_device_id *device)
 
 	errNum = clGetContextInfo(context, CL_CONTEXT_DEVICES, 0, NULL,
 		&deviceBufferSize);
-	if(errNum != CL_SUCCESS)
-	{
+	if(errNum != CL_SUCCESS) {
 		printf("Failed called to clGetContextInf(..., CL_CONTEXT_DEVICES, ...)\n");
 		return NULL;
 	}
 
-	if(deviceBufferSize <= 0)
-	{
+	if(deviceBufferSize <= 0) {
 		printf("No devices available.\n");
 		return NULL;
 	}
@@ -408,16 +369,14 @@ cl_command_queue CreateCommandQueue(cl_context context, cl_device_id *device)
 	devices = new cl_device_id[deviceBufferSize/sizeof(cl_device_id)];
 	errNum = clGetContextInfo(context, CL_CONTEXT_DEVICES, deviceBufferSize,
 		devices, NULL);
-	if(errNum != CL_SUCCESS)
-	{
+	if(errNum != CL_SUCCESS) {
 		printf("Failed to get device IDs\n");
 		delete[] devices;
 		return NULL;
 	}
 
 	commandQueue = clCreateCommandQueue(context, devices[0], 0, NULL);
-	if(commandQueue == NULL)
-	{
+	if(commandQueue == NULL) {
 		printf("Failed to create command Queue for device 0\n");
 		return NULL;
 	}
@@ -434,8 +393,7 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
 	cl_program program;
 
 	ifstream kernelFile(fileName, ios::in);
-	if(!kernelFile.is_open())
-	{
+	if(!kernelFile.is_open()) {
 		printf("Failed to open file for reading: %s\n", fileName);
 		return NULL;
 	}
@@ -447,8 +405,7 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
 	const char *srcStr = srcStdStr.c_str();
 	program = clCreateProgramWithSource(context, 1, (const char**)&srcStr,
 		NULL, NULL);
-	if(program == NULL)
-	{
+	if(program == NULL) {
 		printf("Failed to create CL program from source.\n");
 		return NULL;
 	}
@@ -456,8 +413,7 @@ cl_program CreateProgram(cl_context context, cl_device_id device,
 	// Fourth argument contains a string for opencl kernel preprocessor
 	// search directory, this allows us to use includes.
 	errNum = clBuildProgram(program, 0, NULL, "-I ./", NULL, NULL);
-	if(errNum != CL_SUCCESS)
-	{
+	if(errNum != CL_SUCCESS) {
 		char buildLog[16384];
 		errNum = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
 			sizeof(buildLog), buildLog, NULL);
@@ -532,7 +488,7 @@ void gen_int_program(int prog[MAX_PROGRAM_LENGTH])
         tMode_B<<=12;
         tArg_B<<=0;
 
-        prog[i] = prog[i] | tInst | tMode_A | tArg_A | tMode_B | tArg_B;
+        prog[i] = tInst | tMode_A | tArg_A | tMode_B | tArg_B;
         // We just need to make sure that the data makes sense.
         //cout << (bitset<32>) prog[i] << endl;
     }
@@ -637,12 +593,10 @@ void breed_int(int father[MAX_PROGRAM_LENGTH],
     cut_location = (rand() % (MAX_PROGRAM_LENGTH -2)) + 1;
     point_mutation = rand() % MAX_PROGRAM_LENGTH;
 
-    for(i = 0; i<cut_location; i++)
-    {
+    for(i = 0; i<cut_location; i++) {
         child[i] = father[i];
     }
-    for(i = cut_location; i<MAX_PROGRAM_LENGTH; i++)
-    {
+    for(i = cut_location; i<MAX_PROGRAM_LENGTH; i++) {
         child[i] = mother[i];
     }
 
